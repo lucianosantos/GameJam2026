@@ -3,12 +3,13 @@
 ## Comportamento desta versão
 
 - Grade 6 colunas × 6 linhas, com peças retas e curvas.
-- Clique gira 90° no sentido horário em uma animação suave de 300 ms. Novos giros ficam bloqueados durante a animação; água e conclusão são atualizadas ao terminar o giro. Reiniciar ou desativar o Board cancela um giro pendente sem alterar a orientação lógica. Sem cronômetro próprio ou derrota local.
+- Clique gira 90° no sentido horário em uma animação suave de 150 ms. Novos giros ficam bloqueados durante a animação; água e conclusão são atualizadas ao terminar o giro. Reiniciar ou desativar o Board cancela um giro pendente sem alterar a orientação lógica. Sem cronômetro próprio ou derrota local.
 - Entrada fixa no canto superior esquerdo, aberta para fora pela esquerda.
 - Saída fixa no canto inferior direito, aberta para fora pela direita.
 - Fundo azul identifica a entrada; fundo amarelo identifica a saída.
 - Água aparece imediatamente em todas as peças conectadas à entrada por aberturas recíprocas. Ao desconectar uma peça, o trecho perde água.
 - Chegar à saída dispara `On Completed` uma vez e bloqueia os cliques até `RestartPuzzle()`.
+- Ao concluir, `pSphere5` fica vermelho. O campo `Status Panel` aponta para o modelo do painel, onde o renderer é localizado pelo nome exato; `Status Light` também pode receber o renderer diretamente. `Completed Color` controla a cor de sucesso. O efeito usa `MaterialPropertyBlock`, sem recolorir os materiais compartilhados. Reiniciar restaura a aparência original.
 - O caminho principal é pré-definido, com rotações embaralhadas e peças de distração. Reiniciar não gera novos formatos de caminho; isso pode ser uma evolução posterior.
 - Não há simulação física, animação gradual de enchimento nem integração com um gerenciador geral de vitória.
 

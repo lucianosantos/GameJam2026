@@ -154,6 +154,7 @@ public static class WiresSetup
             collider.size = new Vector3(canvas.rect.width, canvas.rect.height, .01f); collider.center = new Vector3(0, 0, -.065f);
             var click = area.gameObject.AddComponent<CameraClickArea>();
             Set(click, "cameraController", controller); Set(click, "targetPosition", target);
+            area.SetParent(GameObject.Find("ShipPanel").transform, true);
         }
         board.RefreshCableGeometry();
         EditorSceneManager.MarkSceneDirty(root.scene);

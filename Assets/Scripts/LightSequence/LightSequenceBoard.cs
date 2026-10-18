@@ -11,7 +11,8 @@ namespace GameJam2026.LightSequence
     {
         [SerializeField] private LightSequenceButton[] buttons;
         [Tooltip("Button IDs in the required order. Edit this array to change the solution.")]
-        [SerializeField] private int[] correctOrder = { 1, 2, 3, 4, 5, 6, 7, 8 };
+        // Manual months 12,3,2,6,8,11,5,7 mapped to the eight zodiac keys.
+        [SerializeField] private int[] correctOrder = { 8, 2, 1, 4, 6, 7, 3, 5 };
         [SerializeField] private UnityEvent onCompleted = new UnityEvent();
 
         private LightSequenceInput input;
@@ -21,6 +22,7 @@ namespace GameJam2026.LightSequence
         private bool showingError;
 
         public UnityEvent OnCompleted => onCompleted;
+        public event System.Action StateChanged;
         public bool IsCompleted => puzzle != null && puzzle.IsCompleted;
         public int Progress => puzzle != null ? puzzle.Progress : 0;
         public bool CanAcceptInput => isActiveAndEnabled && puzzle != null &&
@@ -62,9 +64,11 @@ namespace GameJam2026.LightSequence
             if (!ValidateConfiguration())
             {
                 Debug.LogError("Light Sequence: assign unique positive Button IDs, a light Renderer on each prefab, and a nonempty Correct Order containing only assigned IDs.", this);
+                StateChanged?.Invoke();
                 return;
             }
             puzzle = new LightSequencePuzzle(correctOrder);
+            StateChanged?.Invoke();
         }
 
         private bool ValidateConfiguration()
@@ -89,6 +93,8 @@ namespace GameJam2026.LightSequence
                     break;
                 case SequencePressResult.Completed:
                     button.SetCorrect();
+                    StateChanged?.Invoke();
+                    SoundManager.Play(GameSound.PuzzleCompleted);
                     onCompleted.Invoke();
                     break;
                 case SequencePressResult.Incorrect:

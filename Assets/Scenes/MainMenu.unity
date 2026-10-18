@@ -129,6 +129,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4997642}
   - component: {fileID: 4997641}
+  - component: {fileID: 4997643}
   m_Layer: 0
   m_Name: MenuManager
   m_TagString: Untagged
@@ -149,6 +150,21 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MainMenuController
   creditsPanel: {fileID: 490440104}
+--- !u!114 &4997643
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4997640}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f194c64a4bf84b9388c388958cd52f23, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GameJam2026.MenuMusic
+  music: {fileID: 8300000, guid: 26c2bd7881a64245a9fbb177457891ed, type: 3}
+  loopStartSeconds: 25.6
+  volume: 0.5
 --- !u!4 &4997642
 Transform:
   m_ObjectHideFlags: 0

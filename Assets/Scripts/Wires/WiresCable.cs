@@ -59,12 +59,17 @@ namespace GameJam2026.Wires
 
         public void LiftAbove(WiresCable lower)
         {
-            if (points == null || lower.points == null) return;
-            float clearance = radius + lower.radius + crossingClearance;
+            LiftAbove(lower.points, lower.radius);
+        }
+
+        public void LiftAbove(Vector3[] lowerPoints, float lowerRadius)
+        {
+            if (points == null || lowerPoints == null) return;
+            float clearance = radius + lowerRadius + crossingClearance;
             for (int i = 1; i < points.Length - 1; i++)
-                for (int j = 0; j < lower.points.Length - 1; j++)
+                for (int j = 0; j < lowerPoints.Length - 1; j++)
                 {
-                    Vector3 a = lower.points[j], b = lower.points[j + 1];
+                    Vector3 a = lowerPoints[j], b = lowerPoints[j + 1];
                     Vector2 d = b - a, p = points[i] - a;
                     float t = d.sqrMagnitude < 0.0000001f ? 0 : Mathf.Clamp01(Vector2.Dot(p, d) / d.sqrMagnitude);
                     Vector3 closest = Vector3.Lerp(a, b, t);

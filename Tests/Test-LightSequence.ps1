@@ -2,6 +2,12 @@ $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path $PSScriptRoot -Parent
 Add-Type -Path (Join-Path $projectRoot 'Assets/Scripts/LightSequence/LightSequencePuzzle.cs')
 function Assert-Sequence($condition, $message) { if (-not $condition) { throw $message } }
+$zodiacOrder = [int[]]@(8, 2, 1, 4, 6, 7, 3, 5)
+$puzzle = [GameJam2026.LightSequence.LightSequencePuzzle]::new($zodiacOrder)
+foreach ($id in $zodiacOrder) { $result = $puzzle.Press($id) }
+Assert-Sequence ($result -eq 'Completed') 'Decoded zodiac sequence must complete'
+$puzzle.Restart()
+Assert-Sequence ($puzzle.Press(1) -eq 'Incorrect') 'Old sequential solution must fail on its first key'
 foreach ($errorAt in 0..7) {
     $puzzle = [GameJam2026.LightSequence.LightSequencePuzzle]::new([int[]](1..8))
     for ($i = 1; $i -le $errorAt; $i++) { Assert-Sequence ($puzzle.Press($i) -eq 'Correct') 'Prefix must be correct' }

@@ -110,7 +110,7 @@ Os símbolos são desenhos iniciais inspirados na referência fornecida, com amb
 Em `Minigames/Wires`, componente **WiresBoard**:
 
 - `Surface`, `Sockets`, `Cables`, `Rules`, `Camera Controller`, `Camera Target` e `Interaction Camera`: referências já atribuídas. A ordem de `Sockets` determina o desempate; os dois encaixes de Z vêm primeiro.
-- `Snap Tolerance`: **0.025** nas unidades locais do `GameCanvas`. Aumentar facilita soltar perto; diminuir exige mais precisão. Não limita comprimento.
+- `Snap Tolerance`: **0.045** nas unidades locais do `GameCanvas`, 80% maior que o valor anterior de 0.025. Aumentar facilita soltar perto; diminuir exige mais precisão. Não limita comprimento.
 - `Drag Threshold Pixels`: **4** pixels para distinguir clique de arraste. Um clique sem movimento não desconecta.
 - `Loose Tip Depth`: **-0.038**, coordenada Z local usada durante o arraste; -Z é acima da superfície.
 - `Loose End Clearance`: **0.034**. Ao soltar uma ponta sem encaixe exatamente sobre outro plug, ela fica acima dele para continuar visível e selecionável; não ocupa nem substitui a entrada.
@@ -122,7 +122,19 @@ No prefab **Cable**, componente **WiresCable**:
 - O material do objeto `Cable tube` controla o revestimento; o prefab `Plug` controla a aparência e o collider das pontas.
 - Os cabos usam uma ordem estável de sobreposição, conforme o array `Cables`. A malha é recalculada quando as pontas, o plano ou os parâmetros mudam. Não há limite de comprimento nem criação de materiais/texturas durante a partida.
 
-### Organização do código
+### Cenário fixo adicionado em 18/10/2026
+
+`GameCanvas/Scenery` instancia `Assets/Art/Minigames/Wires/Prefabs/WiresScenery.prefab`. Contém quatro conectores em posições e rotações irregulares, com símbolos novos de espiral, tridente, losango cortado e escada, e dois fios previamente conectados. Os quatro fios da bandeja e as oito entradas físicas do puzzle continuam sendo os únicos elementos de ligação jogáveis.
+
+- Texturas `Textures/scenery_*.png` e materiais `Materials/ScenerySymbol_*.mat` são assets editáveis.
+- Os dois fios fixos usam `Meshes/FixedCable_1.asset` e `FixedCable_2.asset`. Não têm `WiresCable`, `WiresSocket` nem colliders: não podem ser arrastados ou desconectados, e não aceitam pontas do jogador.
+- `WiresCableObstacle` contém apenas os dados geométricos do trajeto estático. O array `Scenery Cables` de `WiresBoard` usa esses dados exclusivamente para levantar cabos jogáveis nos cruzamentos. Não altera ocupação ou regras de solução.
+- Uma ponta jogável largada sobre um plug decorativo permanece solta e fica acima dele, sem ocupar essa entrada.
+- O menu **Tools > Minigames > Wires > Add Fixed Scenery** fez a montagem inicial e o aumento da tolerância; recusa repetir a operação se `Scenery` já existe, evitando multiplicar a tolerância novamente. Para ajustar a composição, editar o prefab ou suas instâncias.
+
+O teste Unity foi repetido com a decoração: verificou ausência de componentes de interação no cenário, recusa de ligação em entrada decorativa, preservação dos objetos fixos durante a partida inteira, conclusão normal do puzzle e distância dos cabos jogáveis em relação aos fios fixos na solução testada. A lógica pura também passou novamente nas 40.320 permutações. As capturas acima foram atualizadas com a decoração.
+
+### Organização dos componentes
 
 - Separar a lógica de portas, ocupação e pares da apresentação Unity para validar as regras sem depender da geometria.
 - `WiresSocket` identifica cada encaixe físico e seu ponto de entrada; duas instâncias compartilham `fio_z`.

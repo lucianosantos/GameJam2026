@@ -35,7 +35,10 @@ public static class WiresUnityChecks
     {
         Step(End(endpoint).position, false);
         Step(End(endpoint).position, true);
-        Check((int)Read(board, "heldEndpoint") == endpoint, "Pointer must select the requested endpoint " + endpoint);
+        Check((int)Read(board, "heldEndpoint") == endpoint, "Pointer must select the requested endpoint " + endpoint +
+            "; held=" + Read(board,"heldEndpoint") + "; active=" + board.CanInteract + "; collider=" + cables[endpoint/2].GrabCollider(endpoint%2).enabled +
+            "; pointer=" + mouse.position.ReadValue() + "; expected=" + camera.WorldToScreenPoint(End(endpoint).position) +
+            "; pressed=" + mouse.leftButton.wasPressedThisFrame + "; released=" + mouse.leftButton.wasReleasedThisFrame);
         Step(End(endpoint).position + surface.right * .045f, true);
         Step(target, true);
         Check(puzzle.GetSocket(endpoint) == -1, "Hover must not snap before release.");
@@ -48,6 +51,18 @@ public static class WiresUnityChecks
         cables = (WiresCable[])Read(board, "cables"); sockets = (WiresSocket[])Read(board, "sockets");
         puzzle = (WiresPuzzle)Read(board, "puzzle"); camera = Camera.main; surface = (Transform)Read(board, "surface");
         Check(puzzle != null && !puzzle.IsCompleted, "Puzzle must initialize incomplete.");
+        var scenery = surface.Find("Scenery");
+        Transform[] sceneryTransforms = scenery == null ? new Transform[0] : scenery.GetComponentsInChildren<Transform>();
+        var sceneryPositions = new Vector3[sceneryTransforms.Length];
+        for (int i = 0; i < sceneryTransforms.Length; i++) sceneryPositions[i] = sceneryTransforms[i].position;
+        if (scenery != null)
+        {
+            Check(cables.Length == 4 && sockets.Length == 8, "Scenery must not add puzzle entries or cables.");
+            Check(scenery.GetComponentsInChildren<Collider>(true).Length == 0, "Scenery has no selectable colliders.");
+            Check(scenery.GetComponentsInChildren<WiresSocket>(true).Length == 0 && scenery.GetComponentsInChildren<WiresCable>(true).Length == 0,
+                "Scenery must not have interactive socket/cable components.");
+            Check(scenery.GetComponentsInChildren<WiresCableObstacle>().Length == 2, "Two fixed cable paths.");
+        }
         var controller = camera.GetComponent<CameraController>();
         var target = (Transform)Read(board, "cameraTarget");
         var overview = GameObject.Find("CameraPositions/Overview").transform;
@@ -67,6 +82,12 @@ public static class WiresUnityChecks
             controller.MoveTo(target);
             Check(board.CanInteract, "Focused target must accept input.");
             Capture("Temp/Wires-Play-Initial.png");
+            if (scenery != null)
+            {
+                Check(Mathf.Abs(tolerance - .045f) < .000001f, "Snap tolerance increased 80 percent.");
+                Drag(0, scenery.Find("SceneryPort_espiral/PlugAnchor").position);
+                Check(puzzle.GetSocket(0) == -1, "Dropping a playable cable on a scenery port must not connect.");
+            }
             // Both Z entries inside tolerance: first eligible entry wins, then occupied one is skipped.
             Write(board, "snapTolerance", .045f);
             Vector3 midpoint = (sockets[0].Position + sockets[1].Position) * .5f;
@@ -90,6 +111,8 @@ public static class WiresUnityChecks
             controller.MoveTo(overview); controller.MoveTo(target);
             Check(board.IsCompleted && !board.CanInteract && completions == 1, "Returning preserves completion and lock.");
             CheckCrossings();
+            for (int i = 0; i < sceneryTransforms.Length; i++)
+                Check(sceneryTransforms[i].position == sceneryPositions[i], "Scenery must stay fixed during the whole puzzle.");
             Capture("Temp/Wires-Play-Solved.png");
             return "PASS: real pointer ray selection, drag detach, release-only snap, Z tie and Z-Z, occupied target, wrong full arrangement, correction, camera persistence, one completion and permanent input lock.";
         }
@@ -110,6 +133,15 @@ public static class WiresUnityChecks
             for (int p = 0; p < a.Length - 1; p++) for (int q = 0; q < b.Length - 1; q++)
                 Check(SegmentDistance(a[p], a[p+1], b[q], b[q+1]) >= required - .0005f,
                     "Solved cable centerlines must clear both tube radii: cables " + i + "/" + j);
+        }
+        var scenery = (WiresCableObstacle[])Read(board, "sceneryCables");
+        if (scenery == null) return;
+        foreach (var obstacle in scenery) foreach (var cable in cables)
+        {
+            var a = (Vector3[])Read(cable, "points"); var b = obstacle.Sample(surface);
+            float required = cable.Radius + obstacle.Radius;
+            for (int p = 0; p < a.Length - 1; p++) for (int q = 0; q < b.Length - 1; q++)
+                Check(SegmentDistance(a[p], a[p+1], b[q], b[q+1]) >= required - .0005f, "Playable cables must clear fixed scenery cables.");
         }
     }
     private static float SegmentDistance(Vector3 p1, Vector3 q1, Vector3 p2, Vector3 q2)

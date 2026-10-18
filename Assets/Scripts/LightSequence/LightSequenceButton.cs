@@ -11,6 +11,7 @@ namespace GameJam2026.LightSequence
         IPointerUpHandler, IPointerExitHandler, IPointerClickHandler
     {
         [SerializeField] private Transform visual;
+        [SerializeField] private Transform[] legends;
         [Tooltip("Movement in the prefab root's local space, into the panel.")]
         [SerializeField] private Vector3 pressedOffset = new Vector3(0, 0, 0.008f);
         [SerializeField, Min(0.001f)] private float pressDuration = 0.06f;
@@ -20,9 +21,9 @@ namespace GameJam2026.LightSequence
         [Header("Sequence and light (configured in the prefab)")]
         [SerializeField, Min(1)] private int buttonId = 1;
         [SerializeField] private Renderer lightRenderer;
-        [SerializeField] private Color correctColor = new Color(0.05f, 1f, 0.1f);
-        [SerializeField] private Color errorColor = new Color(1f, 0.02f, 0.02f);
-        [SerializeField, Min(0f)] private float emissionIntensity = 1.5f;
+        [SerializeField] private Color correctColor = new Color(0.18f, 0.55f, 0.24f);
+        [SerializeField] private Color errorColor = new Color(0.65f, 0.16f, 0.12f);
+        [SerializeField, Min(0f)] private float emissionIntensity = 0.025f;
         [SerializeField, Min(1)] private int errorFlashCount = 3;
         [SerializeField, Min(0.01f)] private float errorFlashDuration = 0.12f;
         [SerializeField, Min(0.01f)] private float errorFlashInterval = 0.10f;
@@ -31,6 +32,7 @@ namespace GameJam2026.LightSequence
         private BoxCollider hitArea;
         private LightSequenceInput input;
         private Vector3 restPosition;
+        private Vector3[] legendRestPositions;
         private float amount;
         private float pressTime;
         private bool held;
@@ -56,6 +58,9 @@ namespace GameJam2026.LightSequence
         {
             hitArea = GetComponent<BoxCollider>();
             if (visual != null) restPosition = visual.localPosition;
+            legendRestPositions = new Vector3[legends == null ? 0 : legends.Length];
+            for (int i = 0; i < legendRestPositions.Length; i++)
+                if (legends[i] != null) legendRestPositions[i] = legends[i].localPosition;
             lightProperties = new MaterialPropertyBlock();
             if (lightRenderer != null && lightRenderer.sharedMaterial != null)
             {
@@ -127,7 +132,7 @@ namespace GameJam2026.LightSequence
             amount = Mathf.MoveTowards(amount, down ? 1f : 0f,
                 Time.unscaledDeltaTime / Mathf.Max(0.001f, duration));
             float eased = amount * amount * (3f - 2f * amount);
-            if (visual != null) visual.localPosition = restPosition + pressedOffset * eased;
+            ApplyOffset(pressedOffset * eased);
             if (!down && amount == 0f) animatingPress = false;
         }
 
@@ -138,6 +143,7 @@ namespace GameJam2026.LightSequence
             held = true;
             animatingPress = true;
             pressTime = Time.unscaledTime;
+            SoundManager.Play(GameSound.LightSequenceKey);
         }
 
         public void OnPointerUp(PointerEventData eventData)
@@ -167,7 +173,15 @@ namespace GameJam2026.LightSequence
             held = false;
             animatingPress = false;
             amount = 0;
-            if (visual != null) visual.localPosition = restPosition;
+            ApplyOffset(Vector3.zero);
+        }
+
+        private void ApplyOffset(Vector3 offset)
+        {
+            if (visual != null) visual.localPosition = restPosition + offset;
+            if (legendRestPositions == null) return;
+            for (int i = 0; i < legendRestPositions.Length; i++)
+                if (legends[i] != null) legends[i].localPosition = legendRestPositions[i] + offset;
         }
     }
 }

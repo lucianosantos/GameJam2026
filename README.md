@@ -6,6 +6,8 @@ O controlador encontra os minigames, mas precisa das instruções disponíveis n
 
 Este README é o ponto de entrada para entender o projeto e continuar o desenvolvimento em outros chats. Ele distingue a proposta de design, o que já está implementado e as decisões ainda abertas. `GameJam2026` é o nome da pasta do projeto.
 
+**Idioma do jogo: inglês.** Todos os textos apresentados aos jogadores devem estar em inglês, incluindo menus, manual, instruções, mensagens de vitória/derrota e botões. A documentação de desenvolvimento pode continuar em português. Na tela de derrota: **Time's Up**, **The ship has crashed**, **Try Again** e **Back to Menu**.
+
 ## Proposta e decisões abertas
 
 | Assunto | Situação confirmada |
@@ -13,13 +15,13 @@ Este README é o ponto de entrada para entender o projeto e continuar o desenvol
 | Nome do jogo | **Houston, We Have a Problem**, provisório. |
 | Contexto visual | Painel de nave em uma cena 3D, com regiões dedicadas aos minigames. |
 | Estrutura | Cooperação entre dois jogadores, com papéis de manual e controlador, em instâncias separadas. Cinco minigames previstos. |
-| Hidráulica | Girar canos livremente até conectar entrada e saída; sem avanço de água por cronômetro nesta versão. |
+| Cadeado celeste | Substitui a hidráulica no painel: quatro roletes com lua, estrela, sol e Saturno; clique para avançar e botão CONFIRM. Texto SUN, MOON, SATURN, STAR cifrado pelo diagrama do manual, com Q² para os dois O de MOON. Hydraulics preservado e desativado. |
 | Tema e nome da jam | Ainda não informados. |
 | Prazo | **18/10/2026**, conforme a informação de que o prazo termina no dia seguinte a 17/10/2026. Horário de entrega não informado. |
 | Narrativa e objetivo | Consertar a nave a tempo de evitar uma colisão com um planeta. |
-| Tempo de partida | Cronômetro visível na tela do controlador. Duração ajustável; **5 ou 10 minutos** são os valores iniciais mencionados, ainda sem escolha definitiva. |
+| Tempo de partida | **10 minutos**, ajustáveis em `GameSession/Initial Seconds`. Cronômetro vermelho de sete segmentos fixo no topo central da tela, inclusive nos minigames. Implementação e validação em [Docs/Countdown-Unity.md](Docs/Countdown-Unity.md). |
 | Derrota | Não consertar a nave antes do fim do tempo; a nave colide com o planeta. Outras penalidades não foram especificadas. |
-| Vitória | Consertar a nave dentro do prazo. O critério técnico exato de conclusão e sua ligação aos cinco minigames ainda precisam ser detalhados. |
+| Vitória | `GameSession` encerra com sucesso quando os cinco minigames estão concluídos antes do fim do tempo. Integração ainda pendente de teste em Play Mode. |
 | Plataforma da demo | **PC, com mouse e teclado.** Dispositivos móveis não fazem parte do escopo atual. |
 
 ## Experiência cooperativa e escopo da demo
@@ -33,7 +35,7 @@ O princípio de design é que o jogador não consulte o manual e o controlador a
 
 Os dois jogadores abrem o mesmo jogo em computadores separados. Sincronização entre instâncias, lobby, servidores e comunicação integrada não foram especificados; não presumir uma infraestrutura de multiplayer em rede como requisito apenas pela existência dos dois papéis.
 
-O objetivo imediato é uma **demo para a jam**, com menu, manual paginado e controlador com os minigames no painel. Esses itens descrevem o escopo desejado, não uma confirmação de que todo esse fluxo já está pronto. O cronômetro e as condições globais de término devem ser integrados ao controlador; sua duração deve poder ser ajustada após os testes de partida.
+O objetivo imediato é uma **demo para a jam**, com menu, manual paginado e controlador com os minigames no painel. Esses itens descrevem o escopo desejado, não uma confirmação de que todo esse fluxo já está pronto. O cronômetro e as condições globais de término estão ligados à `ControllerScene`; sua duração pode ser ajustada no Inspector. Compilação e lógica de contagem foram verificadas; a integração visual e o término da partida ainda precisam ser testados em Play Mode.
 
 ## Cinco minigames previstos
 
@@ -41,8 +43,8 @@ O objetivo imediato é uma **demo para a jam**, com menu, manual paginado e cont
 | --- | --- |
 | **Combinação de fios / pane elétrica** | Protótipo 3D montado na cena, com sete portas, Z com dois encaixes e quatro fios iguais. Assets editáveis, arraste, validação e bloqueio implementados e testados no Unity. Montagem em [Docs/Wires-Unity.md](Docs/Wires-Unity.md). |
 | **Sequência de luz** | Oito botões 3D; sequência configurável em array, inicialmente 1–8. Acerto fica verde; erro pisca vermelho e reinicia o progresso. Completar dispara `On Completed` uma vez. Montagem e limites de validação em [Docs/LightSequence-Unity.md](Docs/LightSequence-Unity.md). |
-| **Erro hidráulico** | Protótipo de girar canos implementado, descrito abaixo. A relação específica com as instruções do manual ainda precisa ser detalhada. |
-| **Alavanca de pressurização** | Nome confirmado. Regras serão fornecidas quando começar sua implementação. |
+| **Cadeado de símbolos celestes** | Protótipo 3D em `Minigames/CelestialLock`, com Canvas no mesmo transform e área do Hydraulics, quatro roletes, placa de quatro palavras e CONFIRM. Texto cifrado: USL / HQ²L / UCVSZL / UVCZ; solução sol, lua, Saturno, estrela. Valores configuráveis; hidráulica desativada. Testes de lógica e de cliques no Unity passaram. Detalhes em [Docs/CelestialLock-Unity.md](Docs/CelestialLock-Unity.md). |
+| **Alavanca de pressurização** | Três alavancas 3D, quatro posições (1–4), clique e arraste. Apenas `pSphere4` indica conclusão, com vermelho/verde do Light Sequence. Solução configurável, provisoriamente `[1, 2, 3]`; bloqueio após sucesso. Montagem e validações em [Docs/Levers-Unity.md](Docs/Levers-Unity.md). |
 | **Senha de símbolos** | Nome confirmado. Regras serão fornecidas quando começar sua implementação. |
 
 As regras dos minigames são fornecidas gradualmente pelo autor. A combinação de fios já tem sua especificação registrada em [Docs/Wires-Unity.md](Docs/Wires-Unity.md). Não inventar regras a partir dos nomes nem tratar a ausência de detalhes neste README como autorização para redefini-las.
@@ -65,7 +67,9 @@ Protótipo implementado e montado em `ControllerScene`, no objeto `Minigames/Wir
 - Cruzamentos permitidos, com um cabo visualmente acima do outro, sem exigir simulação física. Comprimento ajustado automaticamente. Preservar conexões ao sair e voltar ao painel.
 - Abertura de tampa e remoção de parafusos ficam fora do escopo atual; podem ser consideradas depois.
 
-Modelos, materiais, PNGs dos símbolos e regras ficam em `Assets/Art/Minigames/Wires`, com referências serializadas pelo Inspector. O cabo gera apenas sua malha deformável durante a interação; não cria materiais ou texturas em runtime. `WiresBoard` expõe `Snap Tolerance` (inicialmente `0.025`, nas unidades locais do painel), referências e `On Completed`. O evento está disponível, mas ainda não está ligado a um gerenciador global de partida. As dimensões e posições dos canvases criados pelo autor foram preservadas; o formato atual é mais alto que o esboço original.
+Modelos, materiais, PNGs dos símbolos e regras ficam em `Assets/Art/Minigames/Wires`, com referências serializadas pelo Inspector. O cabo gera apenas sua malha deformável durante a interação; não cria materiais ou texturas em runtime. `WiresBoard` expõe `Snap Tolerance` (**`0.045`**, aumentada em 80% sobre `0.025`, nas unidades locais do painel), referências e `On Completed`. O evento está disponível, mas ainda não está ligado a um gerenciador global de partida. As dimensões e posições dos canvases criados pelo autor foram preservadas; o formato atual é mais alto que o esboço original.
+
+O painel também contém **quatro entradas decorativas com quatro símbolos novos e dois fios já conectados**, em posições e rotações irregulares. São apenas cenário: não aceitam pontas jogáveis, não podem ser retirados e não participam da solução. O prefab `WiresScenery` fica em `GameCanvas/Scenery`; seus cabos têm malhas estáticas salvas, sem colliders de seleção nem componentes de encaixe. Os fios jogáveis passam por cima dos fios fixos nos cruzamentos.
 
 ## Ambiente
 
@@ -108,11 +112,11 @@ A montagem, os sprites e as verificações detalhadas estão em [Docs/Hidraulics
 ### Regras implementadas
 
 - Grade de **6 colunas × 6 linhas**, com peças retas e curvas.
-- Clique esquerdo gira uma peça intermediária em **90° no sentido horário**, com animação suave de **300 ms**. Novos giros ficam bloqueados durante a animação; conexões, água e conclusão são recalculadas ao terminar o giro.
+- Clique esquerdo gira uma peça intermediária em **90° no sentido horário**, com animação suave de **150 ms**. Novos giros ficam bloqueados durante a animação; conexões, água e conclusão são recalculadas ao terminar o giro.
 - Entrada fixa no canto superior esquerdo, aberta pela esquerda; saída fixa no canto inferior direito, aberta pela direita.
 - Terminais identificados por fundos azul e amarelo e bloqueados para rotação.
 - A água aparece imediatamente no trecho conectado à entrada por aberturas recíprocas. Desconectar um trecho remove sua água.
-- Conectar a saída define `IsCompleted`, dispara `OnCompleted` uma vez e bloqueia novas rotações até `RestartPuzzle()`.
+- Conectar a saída define `IsCompleted`, deixa o renderer `pSphere5` do painel vermelho, dispara `OnCompleted` uma vez e bloqueia novas rotações até `RestartPuzzle()`. Reiniciar restaura a aparência original do indicador, sem alterar materiais compartilhados.
 - O caminho principal é pré-definido. Reiniciar embaralha rotações e pode variar as peças de distração; não gera um novo formato de caminho principal.
 - O minigame atual não tem cronômetro próprio, derrota local, simulação física ou enchimento gradual. O limite global de tempo da partida faz parte do design e ainda precisa ser integrado ao fluxo geral.
 
@@ -151,6 +155,11 @@ Os sprites atuais ficam em `Assets/Art/Minigames/Hidraulics`: `BackTile.png`, `p
 | `Tests/` | Verificações da lógica, dos assets e das referências na cena salva. |
 
 Arte está em `Assets/Art`, prefabs em `Assets/Prefabs` e documentação complementar em `Docs`. Preserve os nomes existentes `Hydraulics` no código e `Hidraulics` em partes da hierarquia e dos caminhos; há referências serializadas associadas a essa estrutura.
+
+## Créditos de áudio
+
+- Vitória: [Victory Bell Success Fanfare — emand_edroff, Pixabay](https://pixabay.com/sound-effects/musical-victory-bell-success-fanfare-576275/). Arquivo: `Assets/Audio/victory.mp3`, tocado pelo `SoundManager` ao vencer o jogo.
+- Sucesso: [Success Notification — Universfield, Pixabay](https://pixabay.com/sound-effects/film-special-effects-success-notification-132473/). Arquivo: `Assets/Audio/success.mp3`, tocado pelo `SoundManager` quando um minigame é concluído com sucesso.
 
 ## Verificações
 

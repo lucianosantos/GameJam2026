@@ -12,12 +12,14 @@ namespace GameJam2026.Wires
         [SerializeField] private Transform surface;
         [SerializeField] private WiresSocket[] sockets;
         [SerializeField] private WiresCable[] cables;
+        [Tooltip("Static scenery paths used only to keep movable cables above the fixed wires.")]
+        [SerializeField] private WiresCableObstacle[] sceneryCables;
         [SerializeField] private WiresRules rules;
         [SerializeField] private CameraController cameraController;
         [SerializeField] private Transform cameraTarget;
         [SerializeField] private Camera interactionCamera;
         [Header("Interaction (panel local units)")]
-        [SerializeField, Min(0.001f)] private float snapTolerance = 0.025f;
+        [SerializeField, Min(0.001f)] private float snapTolerance = 0.045f;
         [SerializeField, Min(0f)] private float dragThresholdPixels = 4f;
         [SerializeField] private float looseTipDepth = -0.025f;
         [SerializeField, Min(0.001f)] private float looseEndClearance = 0.034f;
@@ -33,6 +35,7 @@ namespace GameJam2026.Wires
         private bool geometryDirty = true;
         private Vector3[] lastEndpoints;
         private Matrix4x4 lastSurfaceMatrix;
+        private Matrix4x4[] lastSceneryMatrices;
         public bool IsCompleted => puzzle != null && puzzle.IsCompleted;
         public UnityEvent OnCompleted => onCompleted;
         public bool CanInteract => Application.isPlaying && isActiveAndEnabled && puzzle != null &&
@@ -146,6 +149,7 @@ namespace GameJam2026.Wires
             {
                 completionSent = true;
                 RefreshInput();
+                SoundManager.Play(GameSound.PuzzleCompleted);
                 onCompleted.Invoke();
             }
         }
@@ -161,6 +165,15 @@ namespace GameJam2026.Wires
                 Vector3 other = surface.InverseTransformPoint(End(i).position);
                 if (Vector2.Distance(position, other) < looseEndClearance)
                     position.z = Mathf.Min(position.z, other.z - looseEndClearance);
+            }
+            if (sceneryCables != null) foreach (var fixedCable in sceneryCables)
+            {
+                if (fixedCable == null) continue;
+                Vector3[] path = fixedCable.Sample(surface);
+                if (path == null || path.Length == 0) continue;
+                foreach (int index in new[] { 0, path.Length - 1 })
+                    if (Vector2.Distance(position, path[index]) < looseEndClearance)
+                        position.z = Mathf.Min(position.z, path[index].z - looseEndClearance);
             }
             End(heldEndpoint).position = surface.TransformPoint(position);
         }
@@ -186,6 +199,16 @@ namespace GameJam2026.Wires
             if (lastEndpoints == null || lastEndpoints.Length != cables.Length * 2)
             { lastEndpoints = new Vector3[cables.Length * 2]; geometryDirty = true; }
             bool changed = geometryDirty || lastSurfaceMatrix != surface.localToWorldMatrix;
+            int sceneryCount = sceneryCables == null ? 0 : sceneryCables.Length;
+            if (lastSceneryMatrices == null || lastSceneryMatrices.Length != sceneryCount)
+            { lastSceneryMatrices = new Matrix4x4[sceneryCount]; changed = true; }
+            for (int i = 0; i < sceneryCount; i++)
+            {
+                if (sceneryCables[i] == null) continue;
+                var matrix = sceneryCables[i].transform.localToWorldMatrix;
+                if (lastSceneryMatrices[i] != matrix) changed = true;
+                lastSceneryMatrices[i] = matrix;
+            }
             for (int i = 0; i < cables.Length * 2; i++)
             {
                 Vector3 position = End(i).position;
@@ -195,9 +218,14 @@ namespace GameJam2026.Wires
             if (!changed) return;
             geometryDirty = false; lastSurfaceMatrix = surface.localToWorldMatrix;
             foreach (var cable in cables) cable.Sample(surface);
+            var sceneryPaths = new Vector3[sceneryCount][];
+            for (int i = 0; i < sceneryCount; i++)
+                if (sceneryCables[i] != null) sceneryPaths[i] = sceneryCables[i].Sample(surface);
             // Stable stacking avoids oscillation when two wires cross. No rope physics required.
             for (int i = 0; i < cables.Length; i++)
             {
+                for (int j = 0; j < sceneryCount; j++)
+                    if (sceneryPaths[j] != null) cables[i].LiftAbove(sceneryPaths[j], sceneryCables[j].Radius);
                 for (int j = 0; j < i; j++) cables[i].LiftAbove(cables[j]);
                 cables[i].ApplyLift();
                 cables[i].DrawTube(surface);

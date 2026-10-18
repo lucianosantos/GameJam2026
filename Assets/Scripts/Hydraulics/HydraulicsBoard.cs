@@ -22,12 +22,20 @@ namespace GameJam2026.Hydraulics
         [SerializeField] private Color inletColor = new Color(0.4f, 0.8f, 1f);
         [SerializeField] private Color outletColor = new Color(1f, 0.8f, 0.35f);
         [SerializeField] private UnityEvent onCompleted = new UnityEvent();
+        [Header("Completion indicator: pSphere5 in the panel model")]
+        [SerializeField] private Transform statusPanel;
+        [SerializeField] private Renderer statusLight;
+        [SerializeField] private Color completedColor = new Color(0.65f, 0.16f, 0.12f);
+        private MaterialPropertyBlock originalStatusProperties;
+        private MaterialPropertyBlock statusProperties;
+        private static readonly int BaseColor = Shader.PropertyToID("_BaseColor");
+        private static readonly int EmissionColor = Shader.PropertyToID("_EmissionColor");
         private readonly HydraulicsTileView[] tiles =
             new HydraulicsTileView[HydraulicsPuzzle.Columns * HydraulicsPuzzle.Rows];
         private HydraulicsPuzzle puzzle;
         private GridLayoutGroup grid;
         private CanvasGroup interactionGroup;
-        private const float RotationDuration = 0.3f;
+        private const float RotationDuration = 0.15f;
         private Coroutine rotationRoutine;
         public bool IsCompleted => puzzle != null && puzzle.IsSolved;
         public UnityEvent OnCompleted => onCompleted;
@@ -56,6 +64,7 @@ namespace GameJam2026.Hydraulics
 
         private void RefreshInteraction()
         {
+            if (cameraController != null && cameraController.IsGameOver) CancelRotation();
             bool focused = cameraController != null && cameraController.IsFocusedOn(cameraTarget);
             interactionGroup.interactable = focused && rotationRoutine == null;
             interactionGroup.blocksRaycasts = focused;
@@ -79,6 +88,7 @@ namespace GameJam2026.Hydraulics
             {
                 Debug.LogWarning("Hydraulics: interaction is blocked because Camera Target points to Main Camera. Stop Play Mode and assign CameraPositions/Hidraulics as Camera Target.", this);
             }
+            InitializeStatusIndicator();
             grid = GetComponent<GridLayoutGroup>();
             grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
             grid.constraintCount = HydraulicsPuzzle.Columns;
@@ -102,6 +112,7 @@ namespace GameJam2026.Hydraulics
             int seed = Random.Range(0, int.MaxValue);
             puzzle = new HydraulicsPuzzle(seed);
             puzzle.Shuffle(seed);
+            RefreshStatusIndicator();
             RefreshTiles();
             RefreshInteraction();
         }
@@ -121,9 +132,60 @@ namespace GameJam2026.Hydraulics
             yield return tiles[index].AnimateClockwise(RotationDuration);
             rotationRoutine = null;
             bool rotated = puzzle.Rotate(index);
+            RefreshStatusIndicator();
             RefreshTiles();
             RefreshInteraction();
-            if (rotated && puzzle.IsSolved) onCompleted.Invoke();
+            if (rotated && puzzle.IsSolved)
+            {
+                SoundManager.Play(GameSound.PuzzleCompleted);
+                onCompleted.Invoke();
+            }
+        }
+
+        private void InitializeStatusIndicator()
+        {
+            if (statusLight == null && statusPanel != null)
+            {
+                foreach (Renderer candidate in statusPanel.GetComponentsInChildren<Renderer>(true))
+                {
+                    if (candidate.name != "pSphere5") continue;
+                    if (statusLight != null)
+                    {
+                        statusLight = null;
+                        Debug.LogWarning("Hydraulics: multiple pSphere5 renderers found. Assign Status Light explicitly.", this);
+                        return;
+                    }
+                    statusLight = candidate;
+                }
+            }
+            if (statusLight == null)
+            {
+                Debug.LogWarning("Hydraulics: assign Status Panel containing pSphere5, or its renderer in Status Light.", this);
+                return;
+            }
+            originalStatusProperties = new MaterialPropertyBlock();
+            statusProperties = new MaterialPropertyBlock();
+            statusLight.GetPropertyBlock(originalStatusProperties);
+        }
+
+        private void RefreshStatusIndicator()
+        {
+            if (statusLight == null || originalStatusProperties == null) return;
+            if (!IsCompleted)
+            {
+                statusLight.SetPropertyBlock(originalStatusProperties);
+                return;
+            }
+            statusLight.GetPropertyBlock(statusProperties);
+            statusProperties.SetColor(BaseColor, completedColor);
+            statusProperties.SetColor(EmissionColor, completedColor * 0.025f);
+            statusLight.SetPropertyBlock(statusProperties);
+        }
+
+        private void OnDestroy()
+        {
+            if (statusLight != null && originalStatusProperties != null)
+                statusLight.SetPropertyBlock(originalStatusProperties);
         }
 
         private void CancelRotation()
