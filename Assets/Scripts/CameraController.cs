@@ -2,6 +2,9 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 using System.Collections;
+using System;
+
+public enum CameraViewState { Overview, Transitioning, Minigame }
 
 public class CameraController : MonoBehaviour
 {
@@ -9,9 +12,23 @@ public class CameraController : MonoBehaviour
     [SerializeField] private float moveDuration = 0.6f;
 
     private Coroutine currentMovement;
+    public CameraViewState ViewState { get; private set; } = CameraViewState.Overview;
+    public Transform ActiveTarget { get; private set; }
+    public event Action ViewChanged;
+
+    public bool IsFocusedOn(Transform target) => target != null &&
+        ViewState == CameraViewState.Minigame && ActiveTarget == target;
+
+    private void SetViewState(CameraViewState state)
+    {
+        ViewState = state;
+        ViewChanged?.Invoke();
+    }
 
     private void Start()
     {
+        ActiveTarget = overview;
+        SetViewState(CameraViewState.Overview);
         // Começa na visão geral
         if (overview != null)
         {
@@ -25,10 +42,20 @@ public class CameraController : MonoBehaviour
     public void MoveTo(Transform target)
     {
         if (target == null) return;
+        if (ActiveTarget == target) return;
 
         if (currentMovement != null)
             StopCoroutine(currentMovement);
 
+        ActiveTarget = target;
+        SetViewState(CameraViewState.Transitioning);
+        if (moveDuration <= 0f)
+        {
+            transform.SetPositionAndRotation(target.position, target.rotation);
+            currentMovement = null;
+            SetViewState(target == overview ? CameraViewState.Overview : CameraViewState.Minigame);
+            return;
+        }
         currentMovement = StartCoroutine(AnimateCamera(target));
     }
 
@@ -69,6 +96,7 @@ public class CameraController : MonoBehaviour
         );
 
         currentMovement = null;
+        SetViewState(target == overview ? CameraViewState.Overview : CameraViewState.Minigame);
     }
 
     private void Update()
