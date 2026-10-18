@@ -19,7 +19,8 @@ namespace GameJam2026
         [SerializeField] private Transform planet;
         [SerializeField, Min(1)] private float finalPlanetScale = 9f;
         [SerializeField] private Transform planetImpactPoint;
-        [SerializeField, Min(0)] private float finalPlanetClearance = .05f;
+        [SerializeField] private Renderer[] shipGeometry;
+        [SerializeField, Min(0)] private float finalPlanetClearance = .5f;
         [Header("Time warnings (seconds remaining)")]
         [SerializeField, Min(0)] private float shakeStartsAt = 240f;
         [SerializeField, Min(0)] private float redWarningStartsAt = 60f;
@@ -30,17 +31,20 @@ namespace GameJam2026
         private CameraController controller;
         private SevenSegmentDisplay display;
         private RectTransform hud;
-        private GameObject result;
+        [Header("Authored result screen")]
+        [SerializeField] private GameObject result;
+        [SerializeField] private GameObject victoryContent;
+        [SerializeField] private GameObject defeatContent;
         private Text resultText;
         private Text resultMessage;
         private Button replayButton;
         private Button menuButton;
-        private static readonly Color SuccessBlue = new Color(.25f, .43f, 1f);
         private double lastTick;
         private Vector3 planetInitialScale;
         private Vector3 planetApproachDirection;
         private float planetInitialRadius;
         private float planetInitialClearance;
+        private float shipSurfaceOffset;
         private ScreenWarningOverlay warningOverlay;
         private HydraulicsBoard hydraulics;
         private CelestialLockBoard celestialLock;
@@ -96,7 +100,9 @@ namespace GameJam2026
                 planet.localScale = planetInitialScale * scale;
                 if (planetImpactPoint != null && planetInitialRadius > 0f)
                 {
-                    float clearance = Mathf.Lerp(planetInitialClearance, finalPlanetClearance, progress);
+                    float safeClearance = shipSurfaceOffset + finalPlanetClearance;
+                    float clearance = Mathf.Max(safeClearance,
+                        Mathf.Lerp(planetInitialClearance, safeClearance, progress));
                     planet.position = planetImpactPoint.position + planetApproachDirection *
                         (planetInitialRadius * scale + clearance);
                 }
@@ -134,6 +140,20 @@ namespace GameJam2026
             Vector3 offset = planet.position - planetImpactPoint.position;
             planetApproachDirection = offset.sqrMagnitude > .000001f ? offset.normalized : Vector3.forward;
             planetInitialClearance = Mathf.Max(0, offset.magnitude - planetInitialRadius);
+            // A separating plane beyond every ship bound keeps the entire growing sphere outside.
+            // This includes the end of the countdown, regardless of duration or growth multiplier.
+            shipSurfaceOffset = 0f;
+            if (shipGeometry == null) return;
+            Vector3 direction = planetApproachDirection;
+            Vector3 absoluteDirection = new Vector3(Mathf.Abs(direction.x), Mathf.Abs(direction.y), Mathf.Abs(direction.z));
+            foreach (var part in shipGeometry)
+            {
+                if (part == null || !part.enabled || !part.gameObject.activeInHierarchy) continue;
+                Bounds bounds = part.bounds;
+                float farthest = Vector3.Dot(bounds.center - planetImpactPoint.position, direction) +
+                    Vector3.Dot(bounds.extents, absoluteDirection);
+                shipSurfaceOffset = Mathf.Max(shipSurfaceOffset, farthest);
+            }
         }
 
         private void CheckCompletion()
@@ -163,17 +183,13 @@ namespace GameJam2026
             IsReadyToFinish = false;
             warningOverlay.color = Color.clear;
             controller.EndGame();
-            resultText.text = won ? "Congratulations!" : "Time's Up";
-            resultMessage.text = won ? "You won the game!" : "The ship has crashed";
-            Color resultColor = won ? SuccessBlue : new Color(1, .33f, .23f);
-            resultText.color = resultMessage.color = resultColor;
-            replayButton.GetComponentInChildren<Text>().text = won ? "Play Again" : "Try Again";
-            foreach (var button in new[] { replayButton, menuButton })
-            {
-                button.GetComponentInChildren<Text>().color = resultColor;
-                button.GetComponent<Image>().color = won
-                    ? new Color(.055f, .10f, .29f) : new Color(.19f, .075f, .06f);
-            }
+            victoryContent.SetActive(won);
+            defeatContent.SetActive(!won);
+            Transform content = (won ? victoryContent : defeatContent).transform;
+            resultText = content.Find("Title").GetComponent<Text>();
+            resultMessage = content.Find("Subtitle").GetComponent<Text>();
+            replayButton = content.Find("Replay").GetComponent<Button>();
+            menuButton = content.Find("Menu").GetComponent<Button>();
             result.SetActive(true);
             hud.SetAsLastSibling();
             if (won)
@@ -232,20 +248,22 @@ namespace GameJam2026
             display.raycastTarget = false;
             display.SetSeconds(clock.DisplaySeconds);
 
-            RectTransform overlay = Box("Result", canvasObject.transform, Vector2.zero, Vector2.zero);
-            overlay.anchorMin = Vector2.zero;
-            overlay.anchorMax = Vector2.one;
-            overlay.offsetMin = overlay.offsetMax = Vector2.zero;
-            overlay.gameObject.AddComponent<Image>().color = new Color(0, 0, 0, .86f);
-            resultText = Label("", overlay, new Vector2(900, 90), new Vector2(0, 78), 52);
-            resultMessage = Label("", overlay, new Vector2(900, 44), new Vector2(0, 12), 26);
-            replayButton = MakeButton("Try Again", overlay, new Vector2(0, -60),
-                () => SceneManager.LoadScene(gameObject.scene.name));
-            menuButton = MakeButton("Back to Menu", overlay, new Vector2(0, -135),
-                () => SceneManager.LoadScene("MainMenu"));
-            result = overlay.gameObject;
+            // The result Canvas and both layouts are authored in ControllerScene, editable outside Play Mode.
+            if (result == null || victoryContent == null || defeatContent == null)
+            {
+                Debug.LogError("GameSession: assign the authored ResultScreen and its Victory/Defeat groups.", this);
+                return;
+            }
+            foreach (var content in new[] { victoryContent, defeatContent })
+            {
+                content.transform.Find("Replay").GetComponent<Button>().onClick.AddListener(Replay);
+                content.transform.Find("Menu").GetComponent<Button>().onClick.AddListener(BackToMenu);
+            }
             result.SetActive(false);
         }
+
+        private void Replay() => SceneManager.LoadScene(gameObject.scene.name);
+        private void BackToMenu() => SceneManager.LoadScene("MainMenu");
 
         private static RectTransform Box(string title, Transform parent, Vector2 size, Vector2 position)
         {
@@ -256,28 +274,5 @@ namespace GameJam2026
             return rect;
         }
 
-        private static Text Label(string text, Transform parent, Vector2 size, Vector2 position, int fontSize)
-        {
-            Text label = Box(text, parent, size, position).gameObject.AddComponent<Text>();
-            label.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            label.text = text;
-            label.fontSize = fontSize;
-            label.alignment = TextAnchor.MiddleCenter;
-            label.color = new Color(1, .33f, .23f);
-            label.raycastTarget = false;
-            return label;
-        }
-
-        private static Button MakeButton(string text, Transform parent, Vector2 position, UnityAction action)
-        {
-            RectTransform rect = Box(text, parent, new Vector2(370, 58), position);
-            Image image = rect.gameObject.AddComponent<Image>();
-            image.color = new Color(.19f, .075f, .06f);
-            Button button = rect.gameObject.AddComponent<Button>();
-            button.targetGraphic = image;
-            button.onClick.AddListener(action);
-            Label(text, rect, rect.sizeDelta, Vector2.zero, 23);
-            return button;
-        }
     }
 }

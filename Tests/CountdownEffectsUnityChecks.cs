@@ -86,7 +86,7 @@ public static class CountdownEffectsUnityChecks
                 float expected = Mathf.Lerp(1, 9, progress);
                 Check(Mathf.Abs(planet.transform.localScale.x - expected) < .0001f, "Planet follows elapsed time");
                 float clearance = Vector3.Distance(planet.transform.position, impact.transform.position) - expected * .5f;
-                float expectedClearance = Mathf.Lerp(initialPosition.magnitude - .5f, .05f, progress);
+                float expectedClearance = Mathf.Lerp(initialPosition.magnitude - .5f, .5f, progress);
                 Check(Mathf.Abs(clearance - expectedClearance) < .0001f, "Surface approaches impact point without crossing it early");
                 if (remaining == 600) Check(Vector3.Distance(planet.transform.position, initialPosition) < .0001f,
                     "Approach preserves the authored initial position");

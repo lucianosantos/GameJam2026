@@ -36,9 +36,9 @@ public static class LeversUnityChecks {
  foreach(var h in handles){var screen=camera.WorldToScreenPoint(h.transform.position+Vector3.up*.1f);var ray=camera.ScreenPointToRay(screen);Check(Physics.Raycast(ray,out var hit)&&hit.collider.GetComponent<LeverHandle>()==h,"Physical raycast selects "+h.name);}
  Click(handles[1]);Check(handles[1].Position==2&&!board.IsCompleted,"Partial correct combination stays unsolved");Click(handles[2]);Check(handles[2].Position==2&&!board.IsCompleted,"Incorrect combination stays unsolved");
  controller.MoveTo(overview);Check(area.enabled,"Overview restores approach collider");Click(handles[2]);Check(handles[2].Position==2,"Overview preserves progress");controller.MoveTo(target);
- Click(handles[2],PointerEventData.InputButton.Right);Check(handles[2].Position==1,"Right click decreases");Click(handles[2]);Click(handles[2]);Check(board.IsCompleted&&completed==1,"Exact solution completes once");
+ Click(handles[2],PointerEventData.InputButton.Right);Check(handles[2].Position==1,"Right click decreases");Click(handles[2]);board.SetPosition(handles[0],4);board.SetPosition(handles[1],4);Check(board.IsCompleted&&completed==1,"Exact 4,4,2 solution completes once");
  light.GetPropertyBlock(properties);Check(properties.GetColor("_BaseColor")==new Color(.18f,.55f,.24f),"Only global indicator changes green");
- for(int i=0;i<3;i++){Click(handles[i]);Check(handles[i].Position==i+1,"Success locks "+i);Check(handles[i].GetComponentInChildren<Renderer>().sharedMaterial==neutral[i],"No per-handle material feedback");}
+ for(int i=0;i<3;i++){Click(handles[i]);Check(handles[i].Position==new[]{4,4,2}[i],"Success locks "+i);Check(handles[i].GetComponentInChildren<Renderer>().sharedMaterial==neutral[i],"No per-handle material feedback");}
  controller.MoveTo(overview);controller.MoveTo(target);Check(board.IsCompleted&&!board.CanInteract,"Success survives refocus");
  board.RestartPuzzle();Check(!board.IsCompleted&&handles.All(h=>h.Position==1),"Restart restores all handles");
  // Exercise drag events with a real PhysicsRaycaster and projected world displacement.

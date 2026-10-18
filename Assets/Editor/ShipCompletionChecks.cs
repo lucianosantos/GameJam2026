@@ -40,6 +40,8 @@ public static class ShipCompletionChecks
         Check(!session.TryFinishGame() && !session.HasEnded, "Four of five cannot win");
         var c = new CelestialLockPuzzle(new[] { 0, 0, 0, 0 }, new[] { 0, 0, 0, 0 }); c.Submit(); Write(celestial, "puzzle", c);
         Call(session, "CheckCompletion");
+        var monitor = Object.FindFirstObjectByType<StatusMonitor>(); monitor.Refresh();
+        Check(((Text)Read(monitor, "completionPrompt")).enabled, "All systems show the final button instruction");
         Check(session.IsReadyToFinish && !session.HasEnded && !controller.IsGameOver, "All puzzles unlock without ending");
         double before = session.RemainingSeconds;
         Write(session, "lastTick", Time.unscaledTimeAsDouble - 1d);
@@ -63,7 +65,7 @@ public static class ShipCompletionChecks
         Physics.SyncTransforms();
         screen = Camera.main.WorldToScreenPoint(renderer.bounds.center);
         Check(screen.z > 0 && screen.x > 0 && screen.x < Camera.main.pixelWidth &&
-            screen.y > 0 && screen.y < Camera.main.pixelHeight, "Button is visible in monitor view");
+            screen.y > 0 && screen.y < Camera.main.pixelHeight, $"Button is visible in monitor view: screen={screen}, dimensions={Camera.main.pixelWidth}x{Camera.main.pixelHeight}");
         Check(ShipCompletionButton.FindAtScreenPoint(Camera.main, screen) == button, "Monitor ray reaches cap");
         Capture("Temp/ShipCompletionReady.png");
         // A real screen overlay must prevent activation.
@@ -90,16 +92,21 @@ public static class ShipCompletionChecks
         Check(((Text)Read(session, "resultText")).text == "Congratulations!" &&
             ((Text)Read(session, "resultMessage")).text == "You won the game!", "English victory wording");
         var title = (Text)Read(session, "resultText");
-        Check(title.color.b > title.color.g * 2, "Victory uses royal blue");
+        Check(title.color == Color.white, "Victory heading is white");
+        Check(((Text)Read(session, "resultMessage")).color == new Color(.48f, .86f, .62f), "Victory message uses light green");
         Check(((Button)Read(session, "replayButton")).GetComponentInChildren<Text>().text == "Play Again", "Victory replay wording");
         Call(button, "LateUpdate");
         Check(!spill.gameObject.activeInHierarchy, "Ending stops button glow");
         Capture("Temp/ShipCompletionVictory.png");
         // The same completed boards cannot beat an expired deadline in a fresh session.
         var late = new GameObject("Deadline verification", typeof(CameraController), typeof(GameSession));
-        var lateSession = late.GetComponent<GameSession>(); Call(lateSession, "Start");
+        var lateSession = late.GetComponent<GameSession>();
+        foreach (var field in new[] { "result", "victoryContent", "defeatContent" }) Write(lateSession, field, Read(session, field));
+        Call(lateSession, "Start");
         ((CountdownClock)Read(lateSession, "clock")).Advance(600);
         Check(!lateSession.TryFinishGame() && lateSession.HasEnded && !lateSession.HasWon, "Expired deadline loses even with all puzzles solved");
+        Check(((Text)Read(lateSession, "resultText")).color == new Color(1f, .33f, .23f) &&
+            ((Text)Read(lateSession, "resultMessage")).color == new Color(1f, .33f, .23f), "Defeat text is red");
         Check(((Button)Read(lateSession, "replayButton")).GetComponentInChildren<Text>().text == "Try Again", "Failure keeps Try Again");
         Object.Destroy(late);
         File.WriteAllText("Temp/ShipCompletionValidation.txt", "PASS: Unity Play Mode; incomplete and partial puzzles reject completion; all puzzles unlock without winning; timer continues; smooth blue glow; overview and monitor physical clicks; UI and transition blocking; puzzle reset; victory text and colors; duplicate clicks; deadline still loses.");

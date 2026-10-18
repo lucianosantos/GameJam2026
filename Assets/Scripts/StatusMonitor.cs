@@ -17,6 +17,7 @@ namespace GameJam2026
         [SerializeField] private Color failColor = new Color(.75f, .045f, .035f);
         [SerializeField] private Color okColor = new Color(.035f, .42f, .12f);
         [SerializeField] private Camera displayCamera;
+        [SerializeField] private Text completionPrompt;
         [Header("Rows: Zodiac, Wires, Password, Levers, Lock")]
         [SerializeField] private Text[] names = new Text[5];
         [SerializeField] private Text[] statuses = new Text[5];
@@ -48,6 +49,10 @@ namespace GameJam2026
             SetStatus(2, password != null && password.IsCompleted);
             SetStatus(3, levers != null && levers.IsCompleted);
             SetStatus(4, celestialLock != null && celestialLock.IsCompleted);
+            if (completionPrompt != null)
+                completionPrompt.enabled = zodiac != null && zodiac.IsCompleted && wires != null && wires.IsCompleted &&
+                    password != null && password.IsCompleted && levers != null && levers.IsCompleted &&
+                    celestialLock != null && celestialLock.IsCompleted;
         }
 
         private void OnValidate() => ApplyAppearance();

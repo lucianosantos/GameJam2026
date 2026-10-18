@@ -9,8 +9,8 @@ namespace GameJam2026.Levers
         [SerializeField] private CameraController cameraController;
         [SerializeField] private Transform cameraTarget;
         [SerializeField] private LeverHandle[] levers;
-        [Tooltip("Positions 1 (bottom) to 4 (top), from left to right. Prototype solution; match it to the manual.")]
-        [SerializeField] private int[] correctPositions = { 1, 2, 3 };
+        [Tooltip("Positions 1 (bottom) to 4 (top), from left to right.")]
+        [SerializeField] private int[] correctPositions = { 4, 4, 2 };
         [SerializeField] private Renderer statusLight;
         [SerializeField] private Color pendingColor = new Color(1f, .055f, .015f);
         [SerializeField] private Color completedColor = new Color(.035f, 1f, .19f);
