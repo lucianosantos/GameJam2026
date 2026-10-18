@@ -7,7 +7,7 @@ namespace GameJam2026.Hydraulics
     public sealed class HydraulicsPuzzle
     {
         public const int Columns = 6;
-        public const int Rows = 4;
+        public const int Rows = 6;
         public const int North = 1, East = 2, South = 4, West = 8;
         private readonly int[] shapes = new int[Columns * Rows];
         private readonly int[] rotations = new int[Columns * Rows];
@@ -27,7 +27,8 @@ namespace GameJam2026.Hydraulics
                 shapes[i] = random.Next(2) == 0 ? North | South : East | South;
 
             // Authored route, indexed from the top-left. Only rotations are shuffled.
-            int[] route = { 0, 1, 2, 3, 4, 10, 16, 15, 14, 13, 19, 20, 21, 22, 23 };
+            int[] route = { 0, 1, 2, 3, 4, 10, 16, 15, 14, 13, 19, 20, 21, 22,
+                28, 27, 26, 25, 31, 32, 33, 34, 35 };
             for (int i = 0; i < route.Length; i++)
             {
                 int index = route[i];

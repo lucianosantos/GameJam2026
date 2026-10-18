@@ -2,8 +2,8 @@
 
 ## Comportamento desta versão
 
-- Grade 6 colunas × 4 linhas, com peças retas e curvas.
-- Clique gira 90° no sentido horário. Sem cronômetro ou derrota.
+- Grade 6 colunas × 6 linhas, com peças retas e curvas.
+- Clique gira 90° no sentido horário em uma animação suave de 300 ms. Novos giros ficam bloqueados durante a animação; água e conclusão são atualizadas ao terminar o giro. Reiniciar ou desativar o Board cancela um giro pendente sem alterar a orientação lógica. Sem cronômetro próprio ou derrota local.
 - Entrada fixa no canto superior esquerdo, aberta para fora pela esquerda.
 - Saída fixa no canto inferior direito, aberta para fora pela direita.
 - Fundo azul identifica a entrada; fundo amarelo identifica a saída.
@@ -36,13 +36,13 @@ No Canvas:
 
 - **Render Mode = World Space**.
 - **Event Camera = Main Camera**.
-- RectTransform: **Width = 600**, **Height = 400**, pivot central.
+- RectTransform: **Width = 600**, **Height = 600**, pivot central, como referência para a grade quadrada. O Canvas pode ter outras dimensões para acompanhar o painel.
 - Mantenha o **Graphic Raycaster**. Para este protótipo, use **Blocking Objects = None**, evitando que o collider da área de aproximação intercepte os cliques de UI.
 - Reduza a escala uniformemente e posicione/rotacione o Canvas sobre a superfície marcada no print, com uma pequena distância da malha para evitar sobreposição visual. A escala é `largura desejada em unidades / 600`; por exemplo, uma largura de 1,2 unidade usa escala `0.002` nos três eixos.
 
 As coordenadas exatas devem ser ajustadas na Scene View; o print não fornece medidas suficientes para fixá-las com precisão. Verifique o encaixe também pela câmera aproximada.
 
-Na cena atual, o Canvas foi configurado com **600 × 525** e escala uniforme **0.0013333333**, preservando o tamanho físico anterior de **0,8 × 0,7 unidade**. A grade usa células quadradas e fica centralizada, portanto sobra uma margem vertical nesse container.
+A grade usa células quadradas e fica centralizada no Board. Em um container retangular, pode sobrar margem no eixo maior; o script adapta o tamanho das 36 células à área disponível.
 
 Crie um filho UI vazio chamado `Board`, com RectTransform esticado para ocupar todo o Canvas e offsets zerados. Adicione **Grid Layout Group** e **Hydraulics Board**. No Grid, deixe **Spacing = (0, 0)** e **Padding = 0**. O script ajusta tamanho das células, alinhamento e número de colunas.
 
@@ -115,7 +115,7 @@ As imagens retas e curvas têm proporções diferentes. O comprimento da reta (`
 7. Pressione Escape: a UI deve perder interação imediatamente e os colliders de aproximação devem voltar ao terminar o retorno. Aproxime o outro minigame e confira que o tabuleiro de hidráulica continua sem interação.
 8. Confira o encaixe e a mesma espessura nas conexões entre retas e curvas, nas orientações horizontal e vertical, com e sem água.
 
-Não coloque o prefab de célula como filho do Board na cena: as 24 instâncias são criadas no Start. Pare o Play Mode antes de fazer alterações que deseja salvar.
+Não coloque o prefab de célula como filho do Board na cena: as 36 instâncias são criadas no Start. Pare o Play Mode antes de fazer alterações que deseja salvar.
 
 ## Verificação automatizada disponível
 

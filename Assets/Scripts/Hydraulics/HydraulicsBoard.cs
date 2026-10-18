@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
+using System.Collections;
 
 namespace GameJam2026.Hydraulics
 {
@@ -21,10 +22,13 @@ namespace GameJam2026.Hydraulics
         [SerializeField] private Color inletColor = new Color(0.4f, 0.8f, 1f);
         [SerializeField] private Color outletColor = new Color(1f, 0.8f, 0.35f);
         [SerializeField] private UnityEvent onCompleted = new UnityEvent();
-        private readonly HydraulicsTileView[] tiles = new HydraulicsTileView[24];
+        private readonly HydraulicsTileView[] tiles =
+            new HydraulicsTileView[HydraulicsPuzzle.Columns * HydraulicsPuzzle.Rows];
         private HydraulicsPuzzle puzzle;
         private GridLayoutGroup grid;
         private CanvasGroup interactionGroup;
+        private const float RotationDuration = 0.3f;
+        private Coroutine rotationRoutine;
         public bool IsCompleted => puzzle != null && puzzle.IsSolved;
         public UnityEvent OnCompleted => onCompleted;
 
@@ -44,6 +48,7 @@ namespace GameJam2026.Hydraulics
 
         private void OnDisable()
         {
+            CancelRotation();
             if (cameraController != null) cameraController.ViewChanged -= RefreshInteraction;
             interactionGroup.interactable = false;
             interactionGroup.blocksRaycasts = false;
@@ -52,7 +57,7 @@ namespace GameJam2026.Hydraulics
         private void RefreshInteraction()
         {
             bool focused = cameraController != null && cameraController.IsFocusedOn(cameraTarget);
-            interactionGroup.interactable = focused;
+            interactionGroup.interactable = focused && rotationRoutine == null;
             interactionGroup.blocksRaycasts = focused;
         }
 
@@ -83,7 +88,7 @@ namespace GameJam2026.Hydraulics
             for (int i = 0; i < tiles.Length; i++)
             {
                 tiles[i] = Instantiate(tilePrefab, transform);
-                tiles[i].name = $"Pipe_{i % 6}_{i / 6}";
+                tiles[i].name = $"Pipe_{i % HydraulicsPuzzle.Columns}_{i / HydraulicsPuzzle.Columns}";
                 tiles[i].Initialize(this, i);
             }
             ResizeCells();
@@ -93,19 +98,41 @@ namespace GameJam2026.Hydraulics
         public void RestartPuzzle()
         {
             if (grid == null) return;
+            CancelRotation();
             int seed = Random.Range(0, int.MaxValue);
             puzzle = new HydraulicsPuzzle(seed);
             puzzle.Shuffle(seed);
             RefreshTiles();
+            RefreshInteraction();
         }
 
         public void RotateTile(int index)
         {
             if (!isActiveAndEnabled || cameraController == null ||
                 !cameraController.IsFocusedOn(cameraTarget) ||
-                puzzle == null || !puzzle.Rotate(index)) return;
+                puzzle == null || rotationRoutine != null || index < 0 || index >= tiles.Length ||
+                puzzle.IsSolved || puzzle.IsLocked(index)) return;
+            rotationRoutine = StartCoroutine(RotateAndEvaluate(index));
+            RefreshInteraction();
+        }
+
+        private IEnumerator RotateAndEvaluate(int index)
+        {
+            yield return tiles[index].AnimateClockwise(RotationDuration);
+            rotationRoutine = null;
+            bool rotated = puzzle.Rotate(index);
             RefreshTiles();
-            if (puzzle.IsSolved) onCompleted.Invoke();
+            RefreshInteraction();
+            if (rotated && puzzle.IsSolved) onCompleted.Invoke();
+        }
+
+        private void CancelRotation()
+        {
+            if (rotationRoutine == null) return;
+            StopCoroutine(rotationRoutine);
+            rotationRoutine = null;
+            // A cancelled animation does not change the logical orientation.
+            if (puzzle != null) RefreshTiles();
         }
 
         private void RefreshTiles()
@@ -134,8 +161,10 @@ namespace GameJam2026.Hydraulics
         {
             if (grid == null) return;
             Rect rect = ((RectTransform)transform).rect;
-            float width = (rect.width - grid.padding.horizontal - grid.spacing.x * 5) / 6;
-            float height = (rect.height - grid.padding.vertical - grid.spacing.y * 3) / 4;
+            float width = (rect.width - grid.padding.horizontal -
+                grid.spacing.x * (HydraulicsPuzzle.Columns - 1)) / HydraulicsPuzzle.Columns;
+            float height = (rect.height - grid.padding.vertical -
+                grid.spacing.y * (HydraulicsPuzzle.Rows - 1)) / HydraulicsPuzzle.Rows;
             // World-space canvases may use sub-unit RectTransforms. Do not force a
             // one-unit minimum, which would make the grid larger than its container.
             grid.cellSize = Vector2.one * Mathf.Max(0, Mathf.Min(width, height));

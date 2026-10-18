@@ -20,7 +20,8 @@ namespace GameJam2026.Hydraulics
                 for (int b = 0; b < puzzle.Count; b++)
                 {
                     if (!expected[a] || expected[b]) continue;
-                    int dx = b % 6 - a % 6, dy = b / 6 - a / 6;
+                    int dx = b % HydraulicsPuzzle.Columns - a % HydraulicsPuzzle.Columns;
+                    int dy = b / HydraulicsPuzzle.Columns - a / HydraulicsPuzzle.Columns;
                     int exit = 0, entry = 0;
                     if (dx == 1 && dy == 0) { exit = 2; entry = 8; }
                     if (dx == -1 && dy == 0) { exit = 8; entry = 2; }
@@ -34,7 +35,8 @@ namespace GameJam2026.Hydraulics
             } while (changed);
             for (int i = 0; i < puzzle.Count; i++)
                 Check(expected[i] == puzzle.IsWet(i), "Incorrect water reachability at " + i);
-            Check(puzzle.IsSolved == (expected[23] && (puzzle.Connections(23) & 2) != 0),
+            int outlet = puzzle.Count - 1;
+            Check(puzzle.IsSolved == (expected[outlet] && (puzzle.Connections(outlet) & 2) != 0),
                 "Incorrect completion state");
         }
 
@@ -46,20 +48,28 @@ namespace GameJam2026.Hydraulics
             for (int seed = 0; seed < 1000; seed++)
             {
                 var puzzle = new HydraulicsPuzzle(seed);
+                Check(puzzle.Count == 36, "Board must have six columns and six rows");
                 Check(puzzle.IsSolved, "Authored path must be solvable");
+                for (int row = 0; row < HydraulicsPuzzle.Rows; row++)
+                {
+                    bool visited = false;
+                    for (int column = 0; column < HydraulicsPuzzle.Columns; column++)
+                        visited |= puzzle.IsWet(row * HydraulicsPuzzle.Columns + column);
+                    Check(visited, "Authored path must use every row");
+                }
                 var solution = new int[puzzle.Count];
                 for (int i = 0; i < puzzle.Count; i++) solution[i] = puzzle.Rotation(i);
                 puzzle.Shuffle(seed);
                 Check(!puzzle.IsSolved, "Shuffle must start unsolved");
-                Check(!puzzle.Rotate(0) && !puzzle.Rotate(23), "Terminals are fixed");
-                Check(!puzzle.Rotate(-1) && !puzzle.Rotate(24), "Invalid indices are ignored");
+                Check(!puzzle.Rotate(0) && !puzzle.Rotate(puzzle.Count - 1), "Terminals are fixed");
+                Check(!puzzle.Rotate(-1) && !puzzle.Rotate(puzzle.Count), "Invalid indices are ignored");
                 var random = new System.Random(seed);
                 for (int turn = 0; turn < 20; turn++)
                 {
-                    puzzle.Rotate(random.Next(24));
+                    puzzle.Rotate(random.Next(puzzle.Count));
                     CheckWater(puzzle);
                 }
-                for (int i = 1; i < 23 && !puzzle.IsSolved; i++)
+                for (int i = 1; i < puzzle.Count - 1 && !puzzle.IsSolved; i++)
                     for (int turn = 0; turn < 4 && !puzzle.IsSolved &&
                         puzzle.Rotation(i) != solution[i]; turn++) puzzle.Rotate(i);
                 Check(puzzle.IsSolved, "Restoring rotations must complete the board");

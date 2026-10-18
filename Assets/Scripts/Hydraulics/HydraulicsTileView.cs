@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using System.Collections;
 
 namespace GameJam2026.Hydraulics
 {
@@ -42,6 +43,21 @@ namespace GameJam2026.Hydraulics
             pipeRect.localRotation = Quaternion.Euler(0, 0, -90 * rotation);
             backgroundImage.color = background;
             button.interactable = !locked;
+        }
+
+        public IEnumerator AnimateClockwise(float duration)
+        {
+            RectTransform pipeRect = pipeImage.rectTransform;
+            float startAngle = pipeRect.localEulerAngles.z;
+            float elapsed = 0f;
+            while (elapsed < duration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float progress = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(elapsed / duration));
+                pipeRect.localRotation = Quaternion.Euler(0, 0, startAngle - 90f * progress);
+                if (elapsed < duration) yield return null;
+            }
+            pipeRect.localRotation = Quaternion.Euler(0, 0, startAngle - 90f);
         }
 
         private void Click() => board.RotateTile(index);
