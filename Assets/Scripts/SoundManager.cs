@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace GameJam2026
 {
-    public enum GameSound { LightSequenceKey, PasswordKey, PuzzleCompleted, Victory }
+    public enum GameSound { LightSequenceKey, PasswordKey, PuzzleCompleted, Victory, Warning, Explosion }
 
     [DisallowMultipleComponent]
     public sealed class SoundManager : MonoBehaviour
@@ -23,6 +23,10 @@ namespace GameJam2026
         [SerializeField] private Sound puzzleCompleted = new Sound();
         [Header("Vitoria - conclusao do jogo")]
         [SerializeField] private Sound victory = new Sound();
+        [Header("Aviso - ultimo minuto")]
+        [SerializeField] private Sound warning = new Sound();
+        [Header("Explosao - derrota")]
+        [SerializeField] private Sound explosion = new Sound();
         [Header("Musica de fundo (loop)")]
         [SerializeField] private Sound music = new Sound();
         [SerializeField] private bool playMusicOnStart = true;
@@ -73,6 +77,8 @@ namespace GameJam2026
                 case GameSound.PasswordKey: entry = instance.passwordKey; break;
                 case GameSound.PuzzleCompleted: entry = instance.puzzleCompleted; break;
                 case GameSound.Victory: entry = instance.victory; break;
+                case GameSound.Warning: entry = instance.warning; break;
+                case GameSound.Explosion: entry = instance.explosion; break;
                 default: return;
             }
             if (entry.clip != null)

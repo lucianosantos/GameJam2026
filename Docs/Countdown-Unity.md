@@ -20,7 +20,7 @@ O modelo foi centralizado e normalizado para diâmetro de 1 unidade, preservando
 
 O GameObject antigo `Planet` continua na `ControllerScene` com `m_IsActive: 0`; sua malha e seu material foram preservados. A referência do cronômetro aponta para `ArtistPlanet`.
 
-Em `00:00`, `GameSession` encerra a partida uma vez, bloqueia a navegação e as interações dos minigames e mostra **Time's Up** e **The ship has crashed**, com botões **Try Again** e **Back to Menu**. Uma rotação hidráulica pendente é cancelada no término. Não há animação de colisão implementada.
+Em `00:00`, `GameSession` encerra a partida uma vez, bloqueia a navegação e as interações dos minigames e mostra **Time's Up** e **The ship has crashed**, com botões **Try Again** e **Back to Menu**. Não há animação de colisão implementada.
 
 Concluir os cinco minigames libera o botão à direita do monitor, sem encerrar a partida. O cronômetro, o planeta e os alertas continuam até o clique final. A superfície do botão fica azul, com emissão, halo e luz local variando suavemente em ciclos de 2 segundos, sempre acesa. É possível apertá-lo na visão geral ou no foco do monitor; interface de tela, transições e foco em outros minigames bloqueiam o clique. Se um puzzle for reiniciado, o botão volta ao estado original.
 

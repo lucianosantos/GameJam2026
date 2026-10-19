@@ -2,7 +2,6 @@ using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
-using GameJam2026.Hydraulics;
 using GameJam2026.Levers;
 using GameJam2026.LightSequence;
 using GameJam2026.SymbolPassword;
@@ -40,13 +39,13 @@ namespace GameJam2026
         private Button replayButton;
         private Button menuButton;
         private double lastTick;
+        private bool warningSoundPlayed;
         private Vector3 planetInitialScale;
         private Vector3 planetApproachDirection;
         private float planetInitialRadius;
         private float planetInitialClearance;
         private float shipSurfaceOffset;
         private ScreenWarningOverlay warningOverlay;
-        private HydraulicsBoard hydraulics;
         private CelestialLockBoard celestialLock;
         private LeversBoard levers;
         private LightSequenceBoard lights;
@@ -62,7 +61,6 @@ namespace GameJam2026
             controller = GetComponent<CameraController>();
             clock = new CountdownClock(initialSeconds);
             lastTick = Time.unscaledTimeAsDouble;
-            hydraulics = FindFirstObjectByType<HydraulicsBoard>();
             celestialLock = FindFirstObjectByType<CelestialLockBoard>();
             levers = FindFirstObjectByType<LeversBoard>();
             lights = FindFirstObjectByType<LightSequenceBoard>();
@@ -88,6 +86,11 @@ namespace GameJam2026
             display.SetSeconds(clock.DisplaySeconds);
             UpdateTimeEffects();
             if (clock.IsExpired) End(false);
+            else if (!warningSoundPlayed && clock.RemainingSeconds <= 60d)
+            {
+                warningSoundPlayed = true;
+                SoundManager.Play(GameSound.Warning);
+            }
         }
 
         private void UpdateTimeEffects()
@@ -159,8 +162,7 @@ namespace GameJam2026
         private void CheckCompletion()
         {
             Tick(); // The deadline takes precedence over an input received after it.
-            bool replacementCompleted = celestialLock != null ? celestialLock.IsCompleted : hydraulics != null && hydraulics.IsCompleted;
-            if (!HasEnded && replacementCompleted && levers != null && lights != null &&
+            if (!HasEnded && celestialLock != null && celestialLock.IsCompleted && levers != null && lights != null &&
                 password != null && wires != null && levers.IsCompleted &&
                 lights.IsCompleted && password.IsCompleted && wires.IsCompleted)
                 IsReadyToFinish = true;
@@ -197,12 +199,15 @@ namespace GameJam2026
                 SoundManager.Play(GameSound.Victory);
                 onVictory.Invoke();
             }
-            else onTimeExpired.Invoke();
+            else
+            {
+                SoundManager.Play(GameSound.Explosion);
+                onTimeExpired.Invoke();
+            }
         }
 
         private void Listen(UnityAction callback, bool subscribe)
         {
-            if (hydraulics != null) Bind(hydraulics.OnCompleted, callback, subscribe);
             if (celestialLock != null) Bind(celestialLock.OnCompleted, callback, subscribe);
             if (levers != null) Bind(levers.OnCompleted, callback, subscribe);
             if (lights != null) Bind(lights.OnCompleted, callback, subscribe);

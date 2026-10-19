@@ -38,18 +38,11 @@ public static class CelestialLockSetup
         light.sharedMaterial = material;
         light.SetPropertyBlock(null);
         Set(board, "statusLight", light);
-        var oldRoot = GameObject.Find("Minigames").transform.Find("Hidraulics");
-        if (oldRoot != null)
-            foreach (var oldBoard in oldRoot.GetComponentsInChildren<GameJam2026.Hydraulics.HydraulicsBoard>(true))
-            {
-                Set(oldBoard, "statusLight", null);
-                Set(oldBoard, "statusPanel", null);
-            }
         EditorUtility.SetDirty(material);
         EditorSceneManager.MarkSceneDirty(board.gameObject.scene);
         AssetDatabase.SaveAssets();
         EditorSceneManager.SaveScene(board.gameObject.scene);
-        Debug.Log("CelestialLock status light: authored red, green on completion; Hydraulics light references cleared.");
+        Debug.Log("CelestialLock status light: authored red, green on completion.");
     }
 
     [MenuItem("Tools/Minigames/Celestial Lock/Apply Confirmed Cipher Text")]
@@ -105,8 +98,6 @@ public static class CelestialLockSetup
         if (Application.isPlaying || scene.path != "Assets/Scenes/ControllerScene.unity") throw new InvalidOperationException("Open ControllerScene in Edit Mode.");
         var minigames = GameObject.Find("Minigames").transform;
         if (minigames.Find("CelestialLock") != null) throw new InvalidOperationException("CelestialLock already exists. Edit its scene objects and assets.");
-        var oldRoot = minigames.Find("Hidraulics");
-        var source = oldRoot.Find("Canvas").GetComponent<RectTransform>();
         foreach (string folder in new[] { "Meshes", "Materials", "Textures", "Prefabs" }) Directory.CreateDirectory(Art + folder);
         AssetDatabase.Refresh();
         Mesh box = SaveMesh("BeveledBox", BeveledBox());
@@ -119,19 +110,19 @@ public static class CelestialLockSetup
         var symbols = Material("DrumSymbols", Color.white, .12f, .28f);
         symbols.SetTexture("_BaseMap", SymbolTexture());
 
-        // Keep a separate parent, but copy the authored Canvas transform and dimensions exactly.
+        // Use the authored panel layout without depending on another minigame.
         var root = new GameObject("CelestialLock");
         Undo.RegisterCreatedObjectUndo(root, "Create Celestial Lock");
         root.transform.SetParent(minigames, false);
-        root.transform.localPosition = oldRoot.localPosition;
-        root.transform.localRotation = oldRoot.localRotation;
-        root.transform.localScale = oldRoot.localScale;
+        root.transform.localPosition = new Vector3(0, .03f, 0);
+        root.transform.localRotation = Quaternion.identity;
+        root.transform.localScale = Vector3.one;
         var go = new GameObject("Canvas", typeof(RectTransform), typeof(Canvas));
         var canvas = go.GetComponent<RectTransform>();
         canvas.SetParent(root.transform, false);
-        canvas.anchorMin = source.anchorMin; canvas.anchorMax = source.anchorMax; canvas.pivot = source.pivot;
-        canvas.sizeDelta = source.sizeDelta; canvas.anchoredPosition3D = source.anchoredPosition3D;
-        canvas.localRotation = source.localRotation; canvas.localScale = source.localScale;
+        canvas.anchorMin = Vector2.zero; canvas.anchorMax = Vector2.zero; canvas.pivot = Vector2.one * .5f;
+        canvas.sizeDelta = new Vector2(.9f, .9f); canvas.anchoredPosition3D = new Vector3(1.25f, .037f, -.324f);
+        canvas.localRotation = new Quaternion(.6429108f, 0, 0, .7659411f); canvas.localScale = Vector3.one;
         var camera = Camera.main;
         go.GetComponent<Canvas>().renderMode = RenderMode.WorldSpace;
         go.GetComponent<Canvas>().worldCamera = camera;
@@ -196,13 +187,9 @@ public static class CelestialLockSetup
         area.GetComponent<BoxCollider>().size = new Vector3(.86f, .88f, .012f);
         Set(area.GetComponent<CameraClickArea>(), "cameraController", controller); Set(area.GetComponent<CameraClickArea>(), "targetPosition", target);
         area.transform.SetParent(GameObject.Find("ShipPanel").transform, true);
-        oldRoot.gameObject.SetActive(false);
-        // This area lives outside the Hydraulics parent in the authored scene.
-        foreach (var oldArea in UnityEngine.Object.FindObjectsByType<CameraClickArea>(FindObjectsInactive.Include, FindObjectsSortMode.None))
-            if (oldArea.name == "HidraulicsClickArea") oldArea.gameObject.SetActive(false);
         ConfigureStatusLight();
         EditorSceneManager.MarkSceneDirty(scene); AssetDatabase.SaveAssets(); EditorSceneManager.SaveScene(scene);
-        Debug.Log("Celestial Lock assembled; Hydraulics and its overview area preserved but disabled.");
+        Debug.Log("Celestial Lock assembled.");
     }
 
     private static GameObject Part(string name, Transform parent, Mesh mesh, Material material, Vector3 position, Vector3 scale)
@@ -298,10 +285,10 @@ public static class CelestialLockSetup
 
     public static void ValidateAndCapture()
     {
-        var old=GameObject.Find("Minigames").transform.Find("Hidraulics"); var board=UnityEngine.Object.FindFirstObjectByType<CelestialLockBoard>();
-        if(board==null||old.gameObject.activeSelf) throw new Exception("Missing lock or active Hydraulics.");
-        var before=old.Find("Canvas").GetComponent<RectTransform>(); var after=board.transform.Find("Canvas").GetComponent<RectTransform>();
-        if(Vector3.Distance(before.position,after.position)>.000001f||Quaternion.Angle(before.rotation,after.rotation)>.001f||before.sizeDelta!=after.sizeDelta||before.lossyScale!=after.lossyScale) throw new Exception("Canvas transform was not preserved.");
+        var board=UnityEngine.Object.FindFirstObjectByType<CelestialLockBoard>();
+        if(board==null || board.CameraTarget==null) throw new Exception("Missing lock or camera target.");
+        var canvas=board.transform.Find("Canvas").GetComponent<RectTransform>();
+        if(canvas.sizeDelta!=new Vector2(.9f,.9f)) throw new Exception("Unexpected Canvas area.");
         var so=new SerializedObject(board);
         foreach(string name in new[]{"rollers","rollerColliders","cipherLines"}) { var a=so.FindProperty(name); if(a.arraySize!=4)throw new Exception(name);for(int i=0;i<4;i++)if(a.GetArrayElementAtIndex(i).objectReferenceValue==null)throw new Exception(name+" missing reference"); }
         // Every full sequence has exactly one accepted submission for the confirmed solution.
@@ -320,6 +307,6 @@ public static class CelestialLockSetup
         Directory.CreateDirectory("Docs/Images");File.WriteAllBytes("Docs/Images/CelestialLock-Prototype.png",texture.EncodeToPNG());
         camera.targetTexture=previous;RenderTexture.active=active;UnityEngine.Object.DestroyImmediate(texture);UnityEngine.Object.DestroyImmediate(rt);
         camera.transform.SetPositionAndRotation(oldPos,oldRot);
-        Debug.Log("PASS Celestial Lock: Canvas transform and area preserved, Hydraulics disabled, references complete, all 256 combinations checked, prototype captured.");
+        Debug.Log("PASS Celestial Lock: Canvas area validated, references complete, all 256 combinations checked, prototype captured.");
     }
 }

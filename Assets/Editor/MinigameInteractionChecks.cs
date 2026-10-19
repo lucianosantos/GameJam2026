@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
-using GameJam2026.Hydraulics;
 using UnityEditor;
 using UnityEngine;
 
@@ -14,11 +13,10 @@ public static class MinigameInteractionChecks
         if (Application.isPlaying) throw new InvalidOperationException("Stop Play Mode before running this check.");
         var temporaryObjects = new List<GameObject>();
         CameraClickArea firstArea = null, secondArea = null;
-        HydraulicsBoard board = null;
         try
         {
             GameObject overview = Create("Check Overview", temporaryObjects);
-            GameObject hydraulicTarget = Create("Check Hydraulics Target", temporaryObjects);
+            GameObject minigameTarget = Create("Check Minigame Target", temporaryObjects);
             GameObject otherTarget = Create("Check Other Target", temporaryObjects);
             var controller = Create("Check Camera", temporaryObjects).AddComponent<CameraController>();
             SetField(controller, "overview", overview.transform);
@@ -43,18 +41,7 @@ public static class MinigameInteractionChecks
             Invoke(secondArea, "OnDisable");
             Invoke(secondArea, "OnEnable");
 
-            var boardObject = new GameObject("Check Board", typeof(RectTransform));
-            temporaryObjects.Add(boardObject);
-            board = boardObject.AddComponent<HydraulicsBoard>();
-            SetField(board, "cameraController", controller);
-            SetField(board, "cameraTarget", hydraulicTarget.transform);
-            Invoke(board, "Awake");
-            Invoke(board, "OnDisable");
-            Invoke(board, "OnEnable");
-            CanvasGroup group = board.GetComponent<CanvasGroup>();
-
             Check(firstCollider.enabled && secondCollider.enabled, "Overview enables both approach colliders");
-            Check(!group.interactable && !group.blocksRaycasts, "Overview does not capture pipe clicks");
 
             bool sawTransition = false;
             controller.ViewChanged += () =>
@@ -62,25 +49,20 @@ public static class MinigameInteractionChecks
                 if (controller.ViewState != CameraViewState.Transitioning) return;
                 sawTransition = true;
                 Check(!firstCollider.enabled && !secondCollider.enabled, "Transition disables both colliders");
-                Check(!group.interactable && !group.blocksRaycasts, "Transition disables pipe input");
             };
-            controller.MoveTo(hydraulicTarget.transform);
+            controller.MoveTo(minigameTarget.transform);
             Check(sawTransition, "Zoom passes through the transition state");
-            Check(controller.IsFocusedOn(hydraulicTarget.transform), "Hydraulics target is active");
+            Check(controller.IsFocusedOn(minigameTarget.transform), "Minigame target is active");
             Check(!firstCollider.enabled && !secondCollider.enabled, "Zoom keeps both colliders disabled");
-            Check(group.interactable && group.blocksRaycasts, "Arrival enables hydraulics input");
 
             controller.MoveTo(otherTarget.transform);
-            Check(!group.interactable && !group.blocksRaycasts, "Another minigame cannot control hydraulics");
             controller.MoveTo(overview.transform);
             Check(firstCollider.enabled && secondCollider.enabled, "Returning restores both colliders");
             Check(!originallyDisabled.enabled, "Originally disabled colliders stay disabled");
-            Check(!group.interactable && !group.blocksRaycasts, "Returning disables pipe input");
-            Debug.Log("PASS: overview, zoom transition, target-specific input, both approach colliders and return to overview.");
+            Debug.Log("PASS: overview, zoom transition, target focus, both approach colliders and return to overview.");
         }
         finally
         {
-            if (board != null) Invoke(board, "OnDisable");
             if (firstArea != null) Invoke(firstArea, "OnDisable");
             if (secondArea != null) Invoke(secondArea, "OnDisable");
             for (int i = temporaryObjects.Count - 1; i >= 0; i--)

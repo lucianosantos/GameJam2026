@@ -1,6 +1,6 @@
 # Navegação do painel
 
-Na `ControllerScene`, todos os componentes `CameraClickArea` ficam diretamente em `ShipPanel`. A mudança de hierarquia preserva a posição, rotação e escala no mundo. A área antiga de Hydraulics continua desativada, como já estava na cena.
+Na `ControllerScene`, todos os componentes `CameraClickArea` ficam diretamente em `ShipPanel`. A mudança de hierarquia preserva a posição, rotação e escala no mundo.
 
 `ShipPanel/StatusMonitorClickArea` leva a `CameraPositions/StatusMonitor`, que enquadra o monitor central de status. Esse Transform é um ponto de destino da câmera principal; a câmera `StatusMonitor/Display camera` continua responsável pela textura do monitor.
 

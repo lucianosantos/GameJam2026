@@ -93,7 +93,7 @@ public static class CelestialLockUnityChecks
             board.RestartPuzzle(); Check(!board.IsCompleted && board.SymbolAt(0)==3,"Explicit restart restores original order");
             CheckLight(board,false);
             var session=UnityEngine.Object.FindFirstObjectByType<GameJam2026.GameSession>();
-            if(session!=null) Check((CelestialLockBoard)Read(session,"celestialLock")==board && Read(session,"hydraulics")==null,"GameSession uses the replacement, disabled Hydraulics is not required");
+            if(session!=null) Check((CelestialLockBoard)Read(session,"celestialLock")==board,"GameSession registers the celestial lock");
             return "PASS: real clicks, overview entry, animation gate, confirmation, persistence, unique completion, GameSession registration and Luz_Cadeado red/green/emission/restart without mutating its shared material.";
         }
         finally
