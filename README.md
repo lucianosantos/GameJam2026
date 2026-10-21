@@ -83,6 +83,8 @@ As dependências estão declaradas em [Packages/manifest.json](Packages/manifest
 
 ## Cenas e execução
 
+A versão desktop inicia em janela de **1280 × 720**, configurada em Player Settings; a resolução nativa automática está desativada. O redimensionamento está habilitado. `WindowAspectRatio` permanece entre cenas e reajusta a janela para **16:9** após 0,2 segundo sem mudança de tamanho, respeitando a área disponível do monitor com margem para bordas. Durante o arraste pode haver uma adaptação momentânea. A correção atua na versão desktop em modo janela; não altera tela cheia nem a Game View do Editor. Compilação no Unity e `Tests/WindowAspectRatioUnityChecks.cs` passaram (alteração por largura/altura, proporção e limites em mais de 7.000 tamanhos). A interação com a janela do executável ainda requer teste manual.
+
 As três cenas abaixo estão habilitadas em `ProjectSettings/EditorBuildSettings.asset`, nesta ordem:
 
 | Cena | Papel atual |

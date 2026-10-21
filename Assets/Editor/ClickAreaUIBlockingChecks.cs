@@ -27,6 +27,8 @@ public static class ClickAreaUIBlockingChecks
             var target = Child(root, "Target").transform;
             target.position = overview.position + Vector3.forward;
             var controller = cameraObject.AddComponent<CameraController>();
+            cameraObject.GetComponent<PhysicsRaycaster>().enabled = false;
+            cameraObject.AddComponent<GameJam2026.GamePointerRaycaster>();
             Set(controller, "overview", overview);
             Set(controller, "moveDuration", 0f);
             Invoke(controller, "Start");
@@ -39,6 +41,9 @@ public static class ClickAreaUIBlockingChecks
             Invoke(area, "Awake");
             Invoke(area, "OnDisable");
             Invoke(area, "OnEnable");
+            var obstruction = Child(root, "Foreground scenery");
+            obstruction.transform.position = areaObject.transform.position + Vector3.back * 2;
+            obstruction.AddComponent<BoxCollider>();
             Physics.SyncTransforms();
             Vector2 point = camera.WorldToScreenPoint(areaObject.transform.position);
             var hits = new List<RaycastResult>();
@@ -46,10 +51,14 @@ public static class ClickAreaUIBlockingChecks
             Check(hits.Exists(hit => hit.module is PhysicsRaycaster && hit.gameObject == areaObject),
                 "EventSystem sees the physical approach collider.");
             Check(!CameraClickArea.IsBlockedByScreenUI(point), "PhysicsRaycaster hit must not block navigation.");
-            Check(area.TryNavigateAtScreenPoint(camera, point) && controller.IsFocusedOn(target),
-                "Physical click reaches the intended camera target.");
-            controller.ReturnToOverview();
-            Physics.SyncTransforms();
+            foreach (int pointerId in new[] { -1, 42 })
+            {
+                ExecuteEvents.Execute(areaObject, new PointerEventData(events)
+                    { position = point, pointerId = pointerId, button = PointerEventData.InputButton.Left }, ExecuteEvents.pointerClickHandler);
+                Check(controller.IsFocusedOn(target), "Mouse/touch pointer reaches the target despite foreground scenery.");
+                controller.ReturnToOverview();
+                Physics.SyncTransforms();
+            }
 
             var canvasObject = new GameObject("Screen UI", typeof(RectTransform), typeof(Canvas), typeof(GraphicRaycaster));
             canvasObject.transform.SetParent(root.transform, false);
@@ -64,6 +73,9 @@ public static class ClickAreaUIBlockingChecks
             Check(CameraClickArea.IsBlockedByScreenUI(point), "Screen UI still blocks world navigation.");
             Check(!area.TryNavigateAtScreenPoint(camera, point) && controller.ViewState == CameraViewState.Overview,
                 "Clicking an overlay cannot move the camera behind it.");
+            hits.Clear();
+            events.RaycastAll(new PointerEventData(events) { position = point }, hits);
+            Check(hits.Count > 0 && hits[0].gameObject == blocker, "Overlay wins EventSystem sorting over the game raycaster.");
             Debug.Log("PASS: real PhysicsRaycaster result allows navigation; overlay UI blocks navigation.");
         }
         finally

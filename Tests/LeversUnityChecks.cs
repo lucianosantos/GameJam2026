@@ -41,11 +41,9 @@ public static class LeversUnityChecks {
  for(int i=0;i<3;i++){Click(handles[i]);Check(handles[i].Position==new[]{4,4,2}[i],"Success locks "+i);Check(handles[i].GetComponentInChildren<Renderer>().sharedMaterial==neutral[i],"No per-handle material feedback");}
  controller.MoveTo(overview);controller.MoveTo(target);Check(board.IsCompleted&&!board.CanInteract,"Success survives refocus");
  board.RestartPuzzle();Check(!board.IsCompleted&&handles.All(h=>h.Position==1),"Restart restores all handles");
- // Exercise drag events with a real PhysicsRaycaster and projected world displacement.
- var h0=handles[0];var start=camera.WorldToScreenPoint(h0.transform.position);var end=camera.WorldToScreenPoint(h0.transform.position+Vector3.ProjectOnPlane(h0.transform.forward,camera.transform.forward).normalized*.28f);
- var data=new PointerEventData(EventSystem.current){button=PointerEventData.InputButton.Left,position=start,pointerPressRaycast=new RaycastResult{module=camera.GetComponent<PhysicsRaycaster>()}};
- h0.OnBeginDrag(data);data.position=end;h0.OnDrag(data);h0.OnEndDrag(data);Check(h0.Position==4,"Drag reaches fourth discrete position");Check(!data.eligibleForClick,"Drag suppresses subsequent click");
- return "PASS: Luz_Alavancas indicator, restored Luz_Cadeado, fixed pivots, four distinct rotations, four separated ticks without numbers, exact red/green, focus gating, physical raycasts, clicks, persistence, single completion, neutral handles, lock, restart and drag.";
+ foreach(var handle in handles) Check(!((object)handle is IBeginDragHandler) && !((object)handle is IDragHandler) && !((object)handle is IEndDragHandler),"Levers accept clicks only");
+ for(int i=0;i<4;i++) Click(handles[0]);Check(handles[0].Position==1,"Four clicks cycle back to the first position");
+ return "PASS: Luz_Alavancas indicator, restored Luz_Cadeado, fixed pivots, four distinct rotations, four separated ticks without numbers, exact red/green, focus gating, physical raycasts, clicks, persistence, single completion, neutral handles, lock, restart and click-only cycling.";
  }finally{board.OnCompleted.RemoveListener(done);board.RestartPuzzle();duration.SetValue(controller,old);controller.MoveTo(overview);}
  }
  public static string View(){var board=UnityEngine.Object.FindFirstObjectByType<LeversBoard>();var controller=Camera.main.GetComponent<CameraController>();controller.GetType().GetField("moveDuration",BindingFlags.Instance|BindingFlags.NonPublic).SetValue(controller,0f);controller.MoveTo((Transform)Field(board,"cameraTarget"));return "Focused";}

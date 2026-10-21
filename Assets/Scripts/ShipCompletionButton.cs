@@ -1,10 +1,10 @@
 using UnityEngine;
-using UnityEngine.InputSystem;
+using UnityEngine.EventSystems;
 
 namespace GameJam2026
 {
     [DisallowMultipleComponent, RequireComponent(typeof(Collider), typeof(Renderer))]
-    public sealed class ShipCompletionButton : MonoBehaviour
+    public sealed class ShipCompletionButton : MonoBehaviour, IPointerClickHandler
     {
         [SerializeField] private GameSession session;
         [SerializeField] private CameraController controller;
@@ -35,10 +35,10 @@ namespace GameJam2026
             originalEmissionEnabled = material.IsKeywordEnabled("_EMISSION");
         }
 
-        private void Update()
+        public void OnPointerClick(PointerEventData data)
         {
-            if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
-                TryPressAtScreenPoint(Camera.main, Mouse.current.position.ReadValue());
+            if (data.button != PointerEventData.InputButton.Left) return;
+            TryPressAtScreenPoint(data.pressEventCamera != null ? data.pressEventCamera : Camera.main, data.position);
         }
 
         private void LateUpdate()

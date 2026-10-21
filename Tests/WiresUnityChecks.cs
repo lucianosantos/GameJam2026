@@ -3,10 +3,9 @@ using System.IO;
 using System.Reflection;
 using GameJam2026.Wires;
 using UnityEngine;
-using UnityEngine.InputSystem;
-using UnityEngine.InputSystem.LowLevel;
+using UnityEngine.EventSystems;
 
-// Invoke via Pipeline run_script in Play Mode. Synthetic Input System events drive the real Update.
+// Invoke in Play Mode. Pointer events exercise the same handlers for mouse and touch.
 // No scene/asset saves. Stop Play Mode afterwards to restore the initial arrangement.
 public static class WiresUnityChecks
 {
@@ -14,7 +13,8 @@ public static class WiresUnityChecks
     private static WiresCable[] cables;
     private static WiresSocket[] sockets;
     private static WiresPuzzle puzzle;
-    private static Mouse mouse;
+    private static PointerEventData pointer;
+    private static bool pointerPressed;
     private static Camera camera;
     private static Transform surface;
     private static object Read(object target, string name) => Field(target, name).GetValue(target);
@@ -26,9 +26,19 @@ public static class WiresUnityChecks
     {
         Physics.SyncTransforms();
         Vector2 screen = camera.WorldToScreenPoint(world);
-        var state = new MouseState { position = screen }.WithButton(MouseButton.Left, pressed);
-        InputSystem.QueueStateEvent(mouse, state); InputSystem.Update();
-        typeof(WiresBoard).GetMethod("Update", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(board, null);
+        pointer.position = screen;
+        if (pressed && !pointerPressed)
+        {
+            ExecuteEvents.Execute(board.gameObject, pointer, ExecuteEvents.pointerDownHandler);
+            ExecuteEvents.Execute(board.gameObject, pointer, ExecuteEvents.initializePotentialDrag);
+        }
+        else if (pressed) ExecuteEvents.Execute(board.gameObject, pointer, ExecuteEvents.dragHandler);
+        else if (pointerPressed)
+        {
+            ExecuteEvents.Execute(board.gameObject, pointer, ExecuteEvents.pointerUpHandler);
+            ExecuteEvents.Execute(board.gameObject, pointer, ExecuteEvents.endDragHandler);
+        }
+        pointerPressed = pressed;
         board.RefreshCableGeometry();
     }
     private static void Drag(int endpoint, Vector3 target)
@@ -37,8 +47,7 @@ public static class WiresUnityChecks
         Step(End(endpoint).position, true);
         Check((int)Read(board, "heldEndpoint") == endpoint, "Pointer must select the requested endpoint " + endpoint +
             "; held=" + Read(board,"heldEndpoint") + "; active=" + board.CanInteract + "; collider=" + cables[endpoint/2].GrabCollider(endpoint%2).enabled +
-            "; pointer=" + mouse.position.ReadValue() + "; expected=" + camera.WorldToScreenPoint(End(endpoint).position) +
-            "; pressed=" + mouse.leftButton.wasPressedThisFrame + "; released=" + mouse.leftButton.wasReleasedThisFrame);
+            "; pointer=" + pointer.position + "; expected=" + camera.WorldToScreenPoint(End(endpoint).position));
         Step(End(endpoint).position + surface.right * .045f, true);
         Step(target, true);
         Check(puzzle.GetSocket(endpoint) == -1, "Hover must not snap before release.");
@@ -68,19 +77,28 @@ public static class WiresUnityChecks
         var overview = GameObject.Find("CameraPositions/Overview").transform;
         float duration = (float)Read(controller, "moveDuration");
         float tolerance = (float)Read(board, "snapTolerance");
-        var mode = InputSystem.settings.updateMode; var previousMouse = Mouse.current;
         int completions = 0; UnityEngine.Events.UnityAction completed = () => completions++;
         board.OnCompleted.AddListener(completed);
-        mouse = InputSystem.AddDevice<Mouse>(); mouse.MakeCurrent();
+        pointer = new PointerEventData(EventSystem.current) { button = PointerEventData.InputButton.Left, pointerId = 42 };
+        pointerPressed = false;
         try
         {
-            InputSystem.settings.updateMode = InputSettings.UpdateMode.ProcessEventsManually;
             Write(controller, "moveDuration", 0f);
             controller.MoveTo(overview);
             Check(!board.CanInteract, "Overview must block plug input.");
             foreach (var cable in cables) Check(!cable.GrabCollider(0).enabled && !cable.GrabCollider(1).enabled, "Overview disables all tip colliders.");
             controller.MoveTo(target);
             Check(board.CanInteract, "Focused target must accept input.");
+            Step(End(0).position, true);
+            var otherFinger = new PointerEventData(EventSystem.current)
+                { button = PointerEventData.InputButton.Left, pointerId = 99, position = camera.WorldToScreenPoint(End(1).position) };
+            board.OnPointerDown(otherFinger); board.OnDrag(otherFinger); board.OnPointerUp(otherFinger);
+            Check((int)Read(board, "heldEndpoint") == 0, "Another finger cannot replace or release the captured endpoint.");
+            var otherButton = new PointerEventData(EventSystem.current)
+                { button = PointerEventData.InputButton.Right, pointerId = pointer.pointerId };
+            board.OnEndDrag(otherButton);
+            Check((int)Read(board, "heldEndpoint") == 0, "Ending a right-button drag cannot cancel the left-button capture.");
+            Step(End(0).position, false);
             Capture("Temp/Wires-Play-Initial.png");
             if (scenery != null)
             {
@@ -119,8 +137,7 @@ public static class WiresUnityChecks
         finally
         {
             board.OnCompleted.RemoveListener(completed); Write(controller, "moveDuration", duration); Write(board, "snapTolerance", tolerance);
-            InputSystem.RemoveDevice(mouse); InputSystem.settings.updateMode = mode;
-            if (previousMouse != null && previousMouse.added) previousMouse.MakeCurrent();
+            board.OnEndDrag(pointer);
         }
     }
     private static void CheckCrossings()

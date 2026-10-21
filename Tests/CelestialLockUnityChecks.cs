@@ -3,8 +3,7 @@ using System.Reflection;
 using System.Threading.Tasks;
 using GameJam2026.CelestialLock;
 using UnityEngine;
-using UnityEngine.InputSystem;
-using UnityEngine.InputSystem.LowLevel;
+using UnityEngine.EventSystems;
 
 public static class CelestialLockUnityChecks
 {
@@ -21,20 +20,19 @@ public static class CelestialLockUnityChecks
         Check(Vector4.Distance(block.GetColor("_EmissionColor"),expected*(float)Read(board,"emissionIntensity"))<.0001f,"Status emission follows color");
         Check(Vector4.Distance(light.sharedMaterial.GetColor("_BaseColor"),(Color)Read(board,"pendingColor"))<.0001f,"Shared material stays authored red");
     }
-    private static void Step(CelestialLockBoard board, Mouse mouse, Vector3 world, bool down)
-    {
-        var screen = (Vector2)Camera.main.WorldToScreenPoint(world);
-        InputSystem.QueueStateEvent(mouse, new MouseState { position = screen, buttons = down ? (ushort)1 : (ushort)0 });
-        InputSystem.Update();
-        typeof(CelestialLockBoard).GetMethod("Update", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(board, null);
-    }
-    private static void Click(CelestialLockBoard board, Mouse mouse, Collider collider)
+    private static void Click(CelestialLockBoard board, Collider collider)
     {
         Vector3 world = collider.bounds.center;
         Physics.SyncTransforms();
         var ray = Camera.main.ScreenPointToRay(Camera.main.WorldToScreenPoint(world));
         Check(Physics.Raycast(ray, out RaycastHit hit) && hit.collider == collider, "Collider must be reachable by camera ray: " + collider.name);
-        Step(board, mouse, world, false); Step(board, mouse, world, true); Step(board, mouse, world, false);
+        var result = new RaycastResult { gameObject = collider.gameObject, module = Camera.main.GetComponent<GameJam2026.GamePointerRaycaster>() };
+        var data = new PointerEventData(EventSystem.current)
+        {
+            position = Camera.main.WorldToScreenPoint(world), pointerId = 42,
+            button = PointerEventData.InputButton.Left, pointerPressRaycast = result, pointerCurrentRaycast = result
+        };
+        ExecuteEvents.ExecuteHierarchy(collider.gameObject, data, ExecuteEvents.pointerClickHandler);
     }
     public static async Task<string> Run()
     {
@@ -43,15 +41,12 @@ public static class CelestialLockUnityChecks
         var controller = Camera.main.GetComponent<CameraController>();
         var overview = (Transform)Read(controller,"overview");
         var hits = (Collider[])Read(board,"rollerColliders"); var confirm = (Collider)Read(board,"confirmCollider");
-        var originalMode = InputSystem.settings.updateMode; var oldMouse = Mouse.current;
-        var mouse = InputSystem.AddDevice<Mouse>(); mouse.MakeCurrent();
         float duration = (float)Read(controller,"moveDuration");
         controller.GetType().GetField("moveDuration",BindingFlags.Instance|BindingFlags.NonPublic).SetValue(controller,0f);
         int completions = 0; UnityEngine.Events.UnityAction complete = () => completions++;
         board.OnCompleted.AddListener(complete);
         try
         {
-            InputSystem.settings.updateMode = InputSettings.UpdateMode.ProcessEventsManually;
             board.RestartPuzzle(); controller.MoveTo(overview);
             CheckLight(board,false);
             Check(!board.Advance(0) && !board.Submit(), "Overview blocks all gameplay");
@@ -59,19 +54,18 @@ public static class CelestialLockUnityChecks
             Check(area.GetComponent<Collider>().enabled,"Overview area is enabled");
             // Use the actual overview click handler to enter the new minigame.
             Vector3 center = area.GetComponent<Collider>().bounds.center;
-            Step(board,mouse,center,false);
-            Step(board,mouse,center,true);
-            typeof(CameraClickArea).GetMethod("Update",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(area.GetComponent<CameraClickArea>(),null);
-            Step(board,mouse,center,false);
+            ExecuteEvents.Execute(area.gameObject, new PointerEventData(EventSystem.current)
+                { pointerId = 42, position = Camera.main.WorldToScreenPoint(center), button = PointerEventData.InputButton.Left },
+                ExecuteEvents.pointerClickHandler);
             Check(board.CanInteract && !area.GetComponent<Collider>().enabled,"Overview click focuses lock and releases gameplay raycasts");
-            Click(board,mouse,confirm);
+            Click(board,confirm);
             Check(!board.IsCompleted && completions==0,"Wrong confirmation stays editable");
             CheckLight(board,false);
             for(int i=0;i<4;i++) Check(board.SymbolAt(i)==3-i,"Wrong confirm preserves order");
             // A script compile can leave a long unscaledDeltaTime on this frame.
             // Hold this first turn long enough to check the animation gate deterministically.
             board.GetType().GetField("turnDuration",BindingFlags.Instance|BindingFlags.NonPublic).SetValue(board,1000f);
-            Click(board,mouse,hits[0]);
+            Click(board,hits[0]);
             Check(board.SymbolAt(0)==0 && !board.Advance(0),"One real click advances Saturn to Moon, no second turn mid-animation");
             Check(!board.Submit(),"Cannot confirm during a turn");
             board.GetType().GetField("turnDuration",BindingFlags.Instance|BindingFlags.NonPublic).SetValue(board,.18f);
@@ -80,9 +74,9 @@ public static class CelestialLockUnityChecks
             await Task.Delay(260);
             var solution = (CelestialSymbol[])Read(board,"correctOrder");
             for(int i=0;i<4;i++)
-                while(board.SymbolAt(i)!=(int)solution[i]) { Click(board,mouse,hits[i]); await Task.Delay(260); }
+                while(board.SymbolAt(i)!=(int)solution[i]) { Click(board,hits[i]); await Task.Delay(260); }
             Check(!board.IsCompleted,"Correct alignment alone never completes");
-            Click(board,mouse,confirm);
+            Click(board,confirm);
             Check(board.IsCompleted && completions==1,"Real CONFIRM click completes exactly once");
             CheckLight(board,true);
             controller.MoveTo(overview); controller.MoveTo(board.CameraTarget);
@@ -102,7 +96,6 @@ public static class CelestialLockUnityChecks
             board.GetType().GetField("turnDuration",BindingFlags.Instance|BindingFlags.NonPublic).SetValue(board,.18f);
             controller.MoveTo(overview);
             controller.GetType().GetField("moveDuration",BindingFlags.Instance|BindingFlags.NonPublic).SetValue(controller,duration);
-            InputSystem.settings.updateMode=originalMode; InputSystem.RemoveDevice(mouse); if(oldMouse!=null)oldMouse.MakeCurrent();
         }
     }
 }

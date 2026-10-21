@@ -1,11 +1,10 @@
 
 using UnityEngine;
-using UnityEngine.InputSystem;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using System.Collections.Generic;
 
-public class CameraClickArea : MonoBehaviour
+public class CameraClickArea : MonoBehaviour, IPointerClickHandler
 {
     [SerializeField] private Transform targetPosition;
     [SerializeField] private CameraController cameraController;
@@ -112,24 +111,9 @@ public class CameraClickArea : MonoBehaviour
                 areaColliders[i].enabled = overview && initialColliderStates[i];
     }
 
-    private void Update()
+    public void OnPointerClick(PointerEventData data)
     {
-        if (!IsAvailable)
-            return;
-        if (Mouse.current == null)
-            return;
-
-        if (!Mouse.current.leftButton.wasPressedThisFrame)
-            return;
-
-        if (cameraController == null || targetPosition == null)
-            return;
-
-        Camera cam = Camera.main;
-
-        if (cam == null)
-            return;
-
-        TryNavigateAtScreenPoint(cam, Mouse.current.position.ReadValue());
+        if (data.button != PointerEventData.InputButton.Left) return;
+        TryNavigateAtScreenPoint(data.pressEventCamera != null ? data.pressEventCamera : Camera.main, data.position);
     }
 }

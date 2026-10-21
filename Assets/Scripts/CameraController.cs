@@ -8,6 +8,19 @@ public enum CameraViewState { Overview, Transitioning, Minigame }
 
 public class CameraController : MonoBehaviour
 {
+    private void Awake()
+    {
+        if (!Application.isPlaying) return;
+        var pointerRaycaster = GetComponent<GameJam2026.GamePointerRaycaster>();
+        if (pointerRaycaster == null) pointerRaycaster = gameObject.AddComponent<GameJam2026.GamePointerRaycaster>();
+        foreach (var raycaster in GetComponents<UnityEngine.EventSystems.PhysicsRaycaster>())
+        {
+            if (raycaster == pointerRaycaster) continue;
+            pointerRaycaster.eventMask = raycaster.eventMask;
+            raycaster.enabled = false;
+        }
+    }
+
     [SerializeField] private Transform overview;
     [SerializeField] private float moveDuration = 0.6f;
     [SerializeField, Range(0f, 1f)] private float timeShakeDegrees = .18f;

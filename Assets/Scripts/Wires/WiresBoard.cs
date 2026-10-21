@@ -1,12 +1,13 @@
 using System;
 using UnityEngine;
 using UnityEngine.Events;
-using UnityEngine.InputSystem;
+using UnityEngine.EventSystems;
 
 namespace GameJam2026.Wires
 {
     [ExecuteAlways]
-    public sealed class WiresBoard : MonoBehaviour
+    public sealed class WiresBoard : MonoBehaviour, IPointerDownHandler, IPointerUpHandler,
+        IInitializePotentialDragHandler, IBeginDragHandler, IDragHandler, IEndDragHandler
     {
         [Header("Scene references")]
         [SerializeField] private Transform surface;
@@ -31,6 +32,7 @@ namespace GameJam2026.Wires
         private Vector2 pressPosition;
         private Vector3 grabOffset;
         private bool dragging;
+        private int? heldPointer;
         private bool completionSent;
         private bool geometryDirty = true;
         private Vector3[] lastEndpoints;
@@ -80,14 +82,28 @@ namespace GameJam2026.Wires
             foreach (var cable in cables) if (cable != null) cable.SetInputEnabled(CanInteract);
         }
 
-        private void Update()
+        public void OnPointerDown(PointerEventData data)
         {
-            if (!Application.isPlaying) return;
-            if (!CanInteract || Mouse.current == null) { CancelDrag(); return; }
-            Vector2 cursor = Mouse.current.position.ReadValue();
+            if (!CanInteract || heldPointer.HasValue || data.button != PointerEventData.InputButton.Left ||
+                !interactionCamera.pixelRect.Contains(data.position) || CameraClickArea.IsBlockedByScreenUI(data.position)) return;
+            PickEndpoint(interactionCamera.ScreenPointToRay(data.position), data.position);
+            if (heldEndpoint >= 0) heldPointer = data.pointerId;
+        }
+
+        public void OnInitializePotentialDrag(PointerEventData data) => data.useDragThreshold = false;
+        public void OnBeginDrag(PointerEventData data) => OnDrag(data);
+
+        public void OnDrag(PointerEventData data)
+        {
+            if (data.button != PointerEventData.InputButton.Left || heldPointer != data.pointerId) return;
+            if (!CanInteract) { CancelDrag(); return; }
+            MovePointer(data.position);
+        }
+
+        private void MovePointer(Vector2 cursor)
+        {
+            if (!interactionCamera.pixelRect.Contains(cursor)) return;
             Ray ray = interactionCamera.ScreenPointToRay(cursor);
-            if (Mouse.current.leftButton.wasPressedThisFrame) PickEndpoint(ray, cursor);
-            if (heldEndpoint < 0) return;
             if (!dragging && Vector2.Distance(cursor, pressPosition) >= dragThresholdPixels)
             {
                 dragging = true;
@@ -99,8 +115,32 @@ namespace GameJam2026.Wires
                 position.z = looseTipDepth;
                 End(heldEndpoint).position = surface.TransformPoint(position);
             }
-            if (Mouse.current.leftButton.wasReleasedThisFrame) ReleaseEndpoint();
-            else if (!Mouse.current.leftButton.isPressed) CancelDrag();
+        }
+
+        public void OnPointerUp(PointerEventData data)
+        {
+            if (data.button != PointerEventData.InputButton.Left || heldPointer != data.pointerId) return;
+            if (!CanInteract || !interactionCamera.pixelRect.Contains(data.position) ||
+                CameraClickArea.IsBlockedByScreenUI(data.position) || IsCanceledTouch(data))
+            { CancelDrag(); return; }
+            MovePointer(data.position);
+            ReleaseEndpoint();
+        }
+
+        private static bool IsCanceledTouch(PointerEventData data)
+        {
+            if (!(data is UnityEngine.InputSystem.UI.ExtendedPointerEventData extended) ||
+                !(extended.device is UnityEngine.InputSystem.Touchscreen screen)) return false;
+            foreach (var touch in screen.touches)
+                if (touch.touchId.ReadValue() == extended.touchId &&
+                    touch.phase.ReadValue() == UnityEngine.InputSystem.TouchPhase.Canceled) return true;
+            return false;
+        }
+
+        public void OnEndDrag(PointerEventData data)
+        {
+            // The EventSystem sends PointerUp before EndDrag. An unmatched end only cancels.
+            if (data.button == PointerEventData.InputButton.Left && heldPointer == data.pointerId) CancelDrag();
         }
 
         private Transform End(int endpoint) => cables[endpoint / 2].End(endpoint % 2);
@@ -113,16 +153,26 @@ namespace GameJam2026.Wires
             point = default; return false;
         }
 
-        private void PickEndpoint(Ray ray, Vector2 cursor)
+        public bool TryGetEndpointHit(Ray ray, out RaycastHit closestHit)
         {
+            closestHit = default;
+            if (!CanInteract) return false;
             float closest = float.PositiveInfinity;
-            heldEndpoint = -1;
             for (int i = 0; i < cables.Length * 2; i++)
             {
                 Collider collider = cables[i / 2].GrabCollider(i % 2);
                 if (collider.enabled && collider.Raycast(ray, out RaycastHit hit, closest))
-                { closest = hit.distance; heldEndpoint = i; }
+                { closest = hit.distance; closestHit = hit; }
             }
+            return closestHit.collider != null;
+        }
+
+        private void PickEndpoint(Ray ray, Vector2 cursor)
+        {
+            heldEndpoint = -1;
+            if (!TryGetEndpointHit(ray, out var hit)) return;
+            for (int i = 0; i < cables.Length * 2; i++)
+                if (cables[i / 2].GrabCollider(i % 2) == hit.collider) { heldEndpoint = i; break; }
             if (heldEndpoint < 0) return;
             pressPosition = cursor; dragging = false;
             grabOffset = PointOnSurface(ray, out Vector3 point) ? surface.InverseTransformPoint(End(heldEndpoint).position) - point : Vector3.zero;
@@ -179,8 +229,9 @@ namespace GameJam2026.Wires
         }
 
         // Cancel without snapping: camera transitions and focus loss never complete a move by themselves.
-        private void CancelDrag() { heldEndpoint = -1; dragging = false; }
+        private void CancelDrag() { heldEndpoint = -1; heldPointer = null; dragging = false; }
         private void OnApplicationFocus(bool focus) { if (!focus) CancelDrag(); }
+        private void OnApplicationPause(bool paused) { if (paused) CancelDrag(); }
         private void OnDisable()
         {
             if (cameraController != null) cameraController.ViewChanged -= RefreshInput;

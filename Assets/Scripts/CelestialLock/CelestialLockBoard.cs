@@ -1,13 +1,13 @@
 using System;
 using UnityEngine;
 using UnityEngine.Events;
-using UnityEngine.InputSystem;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace GameJam2026.CelestialLock
 {
     [DisallowMultipleComponent]
-    public sealed class CelestialLockBoard : MonoBehaviour
+    public sealed class CelestialLockBoard : MonoBehaviour, IPointerClickHandler
     {
         [SerializeField] private CameraController cameraController;
         [SerializeField] private Transform cameraTarget;
@@ -112,11 +112,16 @@ namespace GameJam2026.CelestialLock
             pressRemaining = Mathf.Max(0, pressRemaining - dt);
             if (confirmVisual != null) confirmVisual.localPosition = confirmRest + Vector3.forward * (pressRemaining > 0 ? .006f : 0);
             if (errorRemaining > 0) { errorRemaining = Mathf.Max(0, errorRemaining - dt); if (errorRemaining == 0) RefreshButton(); }
-            if (!CanInteract || Mouse.current == null || !Mouse.current.leftButton.wasPressedThisFrame) return;
-            Ray ray = interactionCamera.ScreenPointToRay(Mouse.current.position.ReadValue());
-            if (!Physics.Raycast(ray, out RaycastHit hit)) return;
-            if (hit.collider == confirmCollider) { Submit(); return; }
-            int index = Array.IndexOf(rollerColliders, hit.collider);
+        }
+        public void OnPointerClick(PointerEventData data)
+        {
+            if (!CanInteract || data.button != PointerEventData.InputButton.Left) return;
+            // Rollers share this ancestor handler; releasing on a different roller is not a click.
+            var pressed = data.pointerPressRaycast.gameObject;
+            if (pressed == null || pressed != data.pointerCurrentRaycast.gameObject) return;
+            var collider = pressed.GetComponent<Collider>();
+            if (collider == confirmCollider) { Submit(); return; }
+            int index = Array.IndexOf(rollerColliders, collider);
             if (index >= 0) Advance(index);
         }
         private void RefreshButton()
