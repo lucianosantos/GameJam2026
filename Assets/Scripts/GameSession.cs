@@ -181,6 +181,7 @@ namespace GameJam2026
         {
             if (HasEnded) return;
             HasEnded = true;
+            SoundManager.StopBackgroundMusic();
             HasWon = won;
             IsReadyToFinish = false;
             warningOverlay.color = Color.clear;

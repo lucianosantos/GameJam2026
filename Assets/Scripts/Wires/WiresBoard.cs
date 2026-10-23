@@ -22,6 +22,8 @@ namespace GameJam2026.Wires
         [Header("Interaction (panel local units)")]
         [SerializeField, Min(0.001f)] private float snapTolerance = 0.045f;
         [SerializeField, Min(0f)] private float dragThresholdPixels = 4f;
+        [Tooltip("Touch grab radius in pixels at a 540-pixel-high gameplay viewport.")]
+        [SerializeField, Min(0f)] private float touchGrabRadius = 32f;
         [SerializeField] private float looseTipDepth = -0.025f;
         [SerializeField, Min(0.001f)] private float looseEndClearance = 0.034f;
         [Header("Completion")]
@@ -86,7 +88,7 @@ namespace GameJam2026.Wires
         {
             if (!CanInteract || heldPointer.HasValue || data.button != PointerEventData.InputButton.Left ||
                 !interactionCamera.pixelRect.Contains(data.position) || CameraClickArea.IsBlockedByScreenUI(data.position)) return;
-            PickEndpoint(interactionCamera.ScreenPointToRay(data.position), data.position);
+            PickEndpoint(data);
             if (heldEndpoint >= 0) heldPointer = data.pointerId;
         }
 
@@ -167,13 +169,42 @@ namespace GameJam2026.Wires
             return closestHit.collider != null;
         }
 
-        private void PickEndpoint(Ray ray, Vector2 cursor)
+        public bool TryGetEndpointHit(PointerEventData data, out RaycastHit hit)
+        {
+            Ray ray = interactionCamera.ScreenPointToRay(data.position);
+            // Exact hits retain priority, including when two plugs overlap.
+            if (TryGetEndpointHit(ray, out hit)) return true;
+            if (!CanInteract || !interactionCamera.pixelRect.Contains(data.position) ||
+                !(data is UnityEngine.InputSystem.UI.ExtendedPointerEventData extended) ||
+                !(extended.device is UnityEngine.InputSystem.Touchscreen)) return false;
+
+            float radius = touchGrabRadius * interactionCamera.pixelRect.height / 540f;
+            float nearest = radius * radius;
+            for (int i = 0; i < cables.Length * 2; i++)
+            {
+                Collider collider = cables[i / 2].GrabCollider(i % 2);
+                if (!collider.enabled) continue;
+                Vector3 screen = interactionCamera.WorldToScreenPoint(collider.bounds.center);
+                if (screen.z <= 0f || !interactionCamera.pixelRect.Contains((Vector2)screen)) continue;
+                float distance = ((Vector2)screen - data.position).sqrMagnitude;
+                if (distance > nearest) continue;
+                Ray centerRay = interactionCamera.ScreenPointToRay(screen);
+                if (!collider.Raycast(centerRay, out var candidate, Mathf.Infinity)) continue;
+                nearest = distance;
+                hit = candidate;
+            }
+            return hit.collider != null;
+        }
+
+        private void PickEndpoint(PointerEventData data)
         {
             heldEndpoint = -1;
-            if (!TryGetEndpointHit(ray, out var hit)) return;
+            if (!TryGetEndpointHit(data, out var hit)) return;
             for (int i = 0; i < cables.Length * 2; i++)
                 if (cables[i / 2].GrabCollider(i % 2) == hit.collider) { heldEndpoint = i; break; }
             if (heldEndpoint < 0) return;
+            Vector2 cursor = data.position;
+            Ray ray = interactionCamera.ScreenPointToRay(cursor);
             pressPosition = cursor; dragging = false;
             grabOffset = PointOnSurface(ray, out Vector3 point) ? surface.InverseTransformPoint(End(heldEndpoint).position) - point : Vector3.zero;
             grabOffset.z = 0;

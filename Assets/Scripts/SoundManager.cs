@@ -99,6 +99,11 @@ namespace GameJam2026
             if (musicSource != null) musicSource.Stop();
         }
 
+        public static void StopBackgroundMusic()
+        {
+            if (instance != null) instance.StopMusic();
+        }
+
         private void ApplyVolumes()
         {
             if (effectsSource != null) effectsSource.volume = effectsVolume;

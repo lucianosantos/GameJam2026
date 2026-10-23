@@ -42,8 +42,8 @@ namespace GameJam2026
             if (wires == null) wires = FindFirstObjectByType<WiresBoard>();
             if (wires != null && wires.CanInteract)
             {
-                // Keep the same endpoint-only selection as the original cable input.
-                if (wires.TryGetEndpointHit(ray, out var hit)) Add(hit, data, results);
+                // Use the same touch tolerance for event routing and grabbing.
+                if (wires.TryGetEndpointHit(data, out var hit)) Add(hit, data, results);
                 return;
             }
             base.Raycast(data, results);
